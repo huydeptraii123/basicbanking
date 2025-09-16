@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config = {
-  darkMode: ["class"],
+  darkMode: 'class',
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
@@ -19,6 +19,12 @@ const config = {
       },
     },
     extend: {
+      width: {
+        full: "100%",
+      },
+      height: {
+        full: "100%",
+      },
       colors: {
         fill: {
           1: "rgba(255, 255, 255, 0.10)",
