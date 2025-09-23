@@ -20,7 +20,8 @@ On the leftsidebar, you can choose which page you want to show
 In Mobile View, there's an menu button on the top right, when you need to show the leftsidebar, click that button
 ### Home Page
 Desktop view: <img width="1045" height="932" alt="image" src="https://github.com/user-attachments/assets/33c6d351-3512-43d8-bb79-119bca7c3fea" />
-Mobile view: <img width="646" height="935" alt="image" src="https://github.com/user-attachments/assets/e5c676b3-7ec2-4cd1-8916-4e84087e81c5" />
+Mobile view: 
+<img width="646" height="935" alt="image" src="https://github.com/user-attachments/assets/e5c676b3-7ec2-4cd1-8916-4e84087e81c5" />
 
 In Mobile View, there's an menu button on the top right, when you need to show the menu list, click that button
 
@@ -30,7 +31,8 @@ In this page, you can see your bank account, total balance from all of your bank
 
 ### My Banks Page
 Desktop view: <img width="1163" height="938" alt="image" src="https://github.com/user-attachments/assets/eeca893e-2a2f-41ce-9acf-df6255b48750" />
-Mobile view: <img width="636" height="932" alt="image" src="https://github.com/user-attachments/assets/ce8ab611-dec3-4739-80a5-8e38881ee2a4" />
+Mobile view: 
+<img width="636" height="932" alt="image" src="https://github.com/user-attachments/assets/ce8ab611-dec3-4739-80a5-8e38881ee2a4" />
 
 In this page, you can see Your cards, your bank accounts
 
@@ -39,13 +41,15 @@ Below each cards will have an id of that card. If someone want to transfer money
 
 ### Transactions History Page
 Desktop view: <img width="1189" height="932" alt="image" src="https://github.com/user-attachments/assets/6671e3c0-1507-427e-8484-5e5b84b13afb" />
-Mobile view: <img width="598" height="921" alt="image" src="https://github.com/user-attachments/assets/ba05e483-946c-40a6-9f1f-6833094a2d03" />
+Mobile view: 
+<img width="598" height="921" alt="image" src="https://github.com/user-attachments/assets/ba05e483-946c-40a6-9f1f-6833094a2d03" />
 
 This page show your account Transaction History 
 
 ### Transfer Funds
 Desktop view: <img width="968" height="929" alt="image" src="https://github.com/user-attachments/assets/957df93a-8318-451f-a368-b3f3b630dcc0" />
-Mobile view: <img width="521" height="921" alt="image" src="https://github.com/user-attachments/assets/f529cebb-c7d9-426c-ad19-55b8a1e9d790" />
+Mobile view: 
+<img width="521" height="921" alt="image" src="https://github.com/user-attachments/assets/f529cebb-c7d9-426c-ad19-55b8a1e9d790" />
 
 This is an interesting page, where you can transfer your money to someone else
 When transfer, you can leave note to that person or not (Optional)
@@ -56,7 +60,8 @@ The receiver's Plaid Sharable Id is the id where you can take it in My Banks Pag
 
 The amount field please fill it with float value. Ex: 5.00 100.00 500.00
 
-The transfer will takes 2 days to complete, so it will show Processing in the Transaction History:<img width="726" height="311" alt="image" src="https://github.com/user-attachments/assets/daef7131-2934-46d0-bac3-e10951b9f9e8" />
+The transfer will takes 2 days to complete, so it will show Processing in the Transaction History:
+<img width="726" height="311" alt="image" src="https://github.com/user-attachments/assets/daef7131-2934-46d0-bac3-e10951b9f9e8" />
 
 Why it needs 2 days because my app use ACH network in the USA ^^
 
