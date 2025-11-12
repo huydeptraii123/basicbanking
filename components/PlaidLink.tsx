@@ -17,9 +17,13 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
         if (!user || !bankName || !accountId) return;
         setLoading(true);
         try {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const headers: any = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const res = await fetch(`${base}/api/banks/create`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ userId: (user as any).$id || (user as any).id || (user as any).userId, bankName, accountId }),
             });
             const data = await res.json();

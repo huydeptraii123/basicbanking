@@ -121,17 +121,25 @@ export const signUp = async ( {password, ...userData}: SignUpParams) => {
 // ... your initilization functions
 
 export async function getLoggedInUser() {
-  try {
-    const { account } = await createSessionClient();
-    const result = await account.get();
+    try {
+        // Call the new backend API and forward cookies from the incoming request
+        const cookieStore = cookies();
+        const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-    const user = await getUserInfo({ userId: result.$id });
+        const res = await fetch(`${base}/api/user/me`, {
+            headers: {
+                cookie: cookieHeader,
+            },
+            cache: 'no-store',
+        });
 
-
-    return parseStringify(user);
-  } catch (error) {
-    return null;
-  }
+        if (!res.ok) return null;
+        const user = await res.json();
+        return user;
+    } catch (error) {
+        return null;
+    }
 }
 
 export const logoutAccount = async () => {

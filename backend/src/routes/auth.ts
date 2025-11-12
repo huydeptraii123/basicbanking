@@ -21,7 +21,7 @@ router.post('/signin', async (req, res) => {
     const token = signToken(user.id);
     res.cookie('token', token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', path: '/' });
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, token });
   } catch (err: any) {
     console.error(err);
     return res.status(500).json({ error: err.message || 'signin error' });
@@ -46,14 +46,21 @@ router.post('/signup', async (req, res) => {
 
     const dwollaId = dwollaUrl ? dwollaUrl.split('/').pop() : null;
 
-    const created = await prisma.user.create({ data: { email, password: hashed, firstName: firstName || null, lastName: lastName || null, dwollaCustomerId: dwollaId, dwollaCustomerUrl: dwollaUrl || null } });
+  // check for duplicate email first to give a friendly error
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) return res.status(409).json({ error: 'Email already registered' });
+
+  const created = await prisma.user.create({ data: { email, password: hashed, firstName: firstName || null, lastName: lastName || null, dwollaCustomerId: dwollaId, dwollaCustomerUrl: dwollaUrl || null } });
 
     const token = signToken(created.id);
     res.cookie('token', token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', path: '/' });
-
-  return res.json({ ok: true, userId: created.id });
+  return res.json({ ok: true, userId: created.id, token });
   } catch (err: any) {
     console.error(err);
+    // Handle unique constraint errors from Prisma as conflict
+    if (err?.code === 'P2002') {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
     return res.status(500).json({ error: err.message || 'signup error' });
   }
 });
