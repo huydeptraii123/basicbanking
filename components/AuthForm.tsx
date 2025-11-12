@@ -83,6 +83,7 @@ const AuthForm = ({ type }: {type: string}) => {
       if (res.ok) {
         // set a minimal user object for the subsequent bank linking UI
         setUser({ $id: json.userId, firstName: data.firstName, lastName: data.lastName });
+        if (json.token) localStorage.setItem('token', json.token);
         alert('Đăng ký thành công');
       } else {
         console.error('Signup failed', json);
@@ -90,22 +91,25 @@ const AuthForm = ({ type }: {type: string}) => {
       }
     }
 
-    if(type === 'sign-in') {
-      const res = await fetch(`${base}/api/auth/signin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: data.email, password: data.password }),
-        credentials: 'include',
-      });
+        if(type === 'sign-in') {
+            const res = await fetch(`${base}/api/auth/signin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: data.email, password: data.password }),
+                credentials: 'include',
+            });
 
-      if (res.ok) {
-        router.push('/')
-      } else {
-        const j = await res.json();
-        console.error('Signin failed', j);
-        alert('Đăng nhập thất bại: ' + (j.error || JSON.stringify(j)));
-      }
-    }
+            const json = await res.json().catch(() => ({}));
+            if (res.ok) {
+              console.log('signin response', json);
+              if (json.token) localStorage.setItem('token', json.token);
+              alert('Đăng nhập thành công');
+              router.push('/')
+            } else {
+              console.error('Signin failed', json);
+              alert('Đăng nhập thất bại: ' + (json.error || JSON.stringify(json)));
+            }
+        }
 
     } catch (error) {
         console.log(error);

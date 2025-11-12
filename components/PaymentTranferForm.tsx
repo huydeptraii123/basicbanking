@@ -53,8 +53,12 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
     try {
       const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const receiverAccountId = decryptId(data.sharableId);
-      const receiverRes = await fetch(`${base}/api/banks/by-account/${receiverAccountId}`);
-      const senderRes = await fetch(`${base}/api/banks/${data.senderBank}`);
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const headers: any = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const receiverRes = await fetch(`${base}/api/banks/by-account/${receiverAccountId}`, { headers });
+  const senderRes = await fetch(`${base}/api/banks/${data.senderBank}`, { headers });
       if (!receiverRes.ok || !senderRes.ok) throw new Error('bank lookup failed');
       const receiverBank = await receiverRes.json();
       const senderBank = await senderRes.json();
@@ -74,7 +78,7 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
 
       const txRes = await fetch(`${base}/api/transactions/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(transaction),
       });
 
