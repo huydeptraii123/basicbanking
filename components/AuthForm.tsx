@@ -25,16 +25,14 @@ import { authFormSchema } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import SignUp from '@/app/(auth)/sign-up/page'
 import { redirect, useRouter } from 'next/navigation'
-import { getLoggedInUser, signIn, signUp } from '@/lib/actions/user.actions'
+// We now call the backend directly from the client for auth
 import PlaidLink from './PlaidLink'
 
-const formSchema = z.object({
-  email: z.string().email(),
-})
+// runtime schema is created per `type` below
 
 const AuthForm = ({ type }: {type: string}) => {
     const router = useRouter();
-    const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     const formSchema = authFormSchema(type);
@@ -58,36 +56,56 @@ const AuthForm = ({ type }: {type: string}) => {
         // Simulate an API call
         
 
-        if(type === 'sign-up') {
-            const userData = {
-            firstName: data.firstName!,
-            lastName: data.lastName!,
-            address1: data.address1!,
-            city: data.city!,
-            state: data.state!,
-            postalCode: data.postalCode!,
-            dateOfBirth: data.dateOfBirth!,
-            ssn: data.ssn!,
-            email: data.email,
-            password: data.password
-            };
-          
-            const newUser = await signUp(userData);
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-            setUser(newUser);
-        }
-      
+    if(type === 'sign-up') {
+      const userData = {
+      firstName: data.firstName!,
+      lastName: data.lastName!,
+      address1: data.address1!,
+      city: data.city!,
+      state: data.state!,
+      postalCode: data.postalCode!,
+      dateOfBirth: data.dateOfBirth!,
+      ssn: data.ssn!,
+      email: data.email,
+      password: data.password
+      };
 
-        if(type === 'sign-in') {
-            const response = await signIn({
-                email: data.email,
-                password: data.password,
-            })
+      const res = await fetch(`${base}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+        credentials: 'include',
+      });
 
-            if(response) {
-              router.push('/')
-            }
-        }
+      const json = await res.json();
+      if (res.ok) {
+        // set a minimal user object for the subsequent bank linking UI
+        setUser({ $id: json.userId, firstName: data.firstName, lastName: data.lastName });
+        alert('Đăng ký thành công');
+      } else {
+        console.error('Signup failed', json);
+        alert('Đăng ký thất bại: ' + (json.error || JSON.stringify(json)));
+      }
+    }
+
+    if(type === 'sign-in') {
+      const res = await fetch(`${base}/api/auth/signin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email, password: data.password }),
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        router.push('/')
+      } else {
+        const j = await res.json();
+        console.error('Signin failed', j);
+        alert('Đăng nhập thất bại: ' + (j.error || JSON.stringify(j)));
+      }
+    }
 
     } catch (error) {
         console.log(error);

@@ -7,9 +7,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-import { createTransfer } from "@/lib/actions/dwolla.actions";
-import { createTransaction } from "@/lib/actions/transactions.action";
-import { getBank, getBankByAccountId } from "@/lib/actions/user.actions";
+// We'll call backend endpoints directly (no external Dwolla/Plaid)
 import { decryptId } from "@/lib/utils";
 
 import { BankDropdown } from "./BankDropdown";
@@ -53,38 +51,38 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
     setIsLoading(true);
 
     try {
+      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const receiverAccountId = decryptId(data.sharableId);
-      const receiverBank = await getBankByAccountId({
-        accountId: receiverAccountId,
-      });
-      const senderBank = await getBank({ documentId: data.senderBank });
+      const receiverRes = await fetch(`${base}/api/banks/by-account/${receiverAccountId}`);
+      const senderRes = await fetch(`${base}/api/banks/${data.senderBank}`);
+      if (!receiverRes.ok || !senderRes.ok) throw new Error('bank lookup failed');
+      const receiverBank = await receiverRes.json();
+      const senderBank = await senderRes.json();
 
-      const transferParams = {
-        sourceFundingSourceUrl: senderBank.fundingSourceUrl,
-        destinationFundingSourceUrl: receiverBank.fundingSourceUrl,
-        amount: data.amount,
+      // create transaction record locally (we are not calling Dwolla)
+      const transaction = {
+        name: data.name,
+        amount: parseFloat(data.amount),
+        senderId: (senderBank as any).userId,
+        senderBankId: (senderBank as any).id,
+        receiverId: (receiverBank as any).userId,
+        receiverBankId: (receiverBank as any).id,
+        email: data.email,
+        channel: 'online',
+        category: 'Transfer'
       };
-      // create transfer
-      const transfer = await createTransfer(transferParams);
 
-      // create transfer transaction
-      if (transfer) {
-        const transaction = {
-          name: data.name,
-          amount: data.amount,
-          senderId: senderBank.userId.$id,
-          senderBankId: senderBank.$id,
-          receiverId: receiverBank.userId.$id,
-          receiverBankId: receiverBank.$id,
-          email: data.email,
-        };
+      const txRes = await fetch(`${base}/api/transactions/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      });
 
-        const newTransaction = await createTransaction(transaction);
-
-        if (newTransaction) {
-          form.reset();
-          router.push("/");
-        }
+      if (txRes.ok) {
+        form.reset();
+        router.push('/');
+      } else {
+        console.error('create transaction failed', await txRes.json());
       }
     } catch (error) {
       console.error("Submitting create transfer request failed: ", error);

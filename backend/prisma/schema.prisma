@@ -1,0 +1,53 @@
+// Prisma schema for PostgreSQL. Set DATABASE_URL environment variable before running migrations.
+
+// For local quick testing we can use SQLite. To run with Postgres, change provider back to
+// "postgresql" and set DATABASE_URL to your Postgres connection string.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  password          String
+  firstName         String?
+  lastName          String?
+  dwollaCustomerId  String?
+  dwollaCustomerUrl String?
+  createdAt         DateTime @default(now())
+  banks             Bank[]
+}
+
+model Bank {
+  id             String   @id @default(uuid())
+  userId         String
+  bankId         String?
+  accountId      String?
+  accessToken    String?
+  fundingSourceUrl String?
+  sharableId     String?
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  transactionsSent   Transaction[] @relation("sentTo")
+  transactionsReceived Transaction[] @relation("receivedBy")
+}
+
+model Transaction {
+  id             String   @id @default(uuid())
+  name           String?
+  amount         Float?
+  senderBankId   String?  
+  receiverBankId String?
+  channel        String?
+  category       String?
+  createdAt      DateTime @default(now())
+
+  senderBank   Bank? @relation("sentTo", fields: [senderBankId], references: [id])
+  receiverBank Bank? @relation("receivedBy", fields: [receiverBankId], references: [id])
+}
