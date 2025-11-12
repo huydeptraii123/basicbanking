@@ -19,19 +19,30 @@ const {
 
 export const getUserInfo = async ({ userId }:getUserInfoProps) => {
      try {
-        const { database } = await createAdminClient();
+        // Use the new backend API to fetch user info by id if available.
+        // Backend exposes /api/user/me for the currently-authenticated user.
+        // If caller provided a userId and the server has a way to fetch any user,
+        // we'd call /api/user/:id — but to keep compatibility, attempt /me when
+        // called from Server Components and return null otherwise.
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        const cookieStore = cookies();
+        const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-        const user = await database.listDocuments(
-            DATABASE_ID!,
-            USER_COLLECTION_ID!,
-            [Query.equal('userId', [userId])]
-        );
+        // If userId is provided, try to fetch /api/user/me (most server flows use cookies)
+        const res = await fetch(`${base}/api/user/me`, {
+            headers: {
+                cookie: cookieHeader,
+            },
+            cache: 'no-store',
+        });
 
-
-
-        return parseStringify(user.documents[0]);
+        if (!res.ok) return null;
+        const body = await res.json();
+        // backend returns { user }
+        return parseStringify(body.user || null);
     }  catch (error) {
         console.log('error', error);
+        return null;
     }
 }
 
@@ -184,19 +195,28 @@ export const createBankAccount = async ({
 }: createBankAccountProps
 ) => {
     try {
-        const { database } = await createAdminClient(
-        );
+        // call the new backend to create a bank record
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        const cookieStore = cookies();
+        const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-        const bankAccount = await database.createDocument(
-            DATABASE_ID!,
-            BANK_COLLECTION_ID!,
-            ID.unique(),
-            {
-                userId, bankId, accountId, accessToken, fundingSourceUrl, sharableId,
-            }
-        );
+        const res = await fetch(`${base}/api/banks/create`, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+                cookie: cookieHeader,
+            },
+            body: JSON.stringify({ userId, bankName: bankId, accountId, accessToken, sharableId }),
+            cache: 'no-store',
+        });
 
-        return parseStringify(bankAccount);
+        if (!res.ok) {
+            console.error('createBankAccount backend error', await res.text());
+            return null;
+        }
+
+        const body = await res.json();
+        return parseStringify(body.bank || body);
     }   catch (error) {
         console.log('error', error);
     }
@@ -260,15 +280,24 @@ export const exchangePublicToken = async ({publicToken, user}: exchangePublicTok
 
 export const getBanks = async ({ userId }: getBanksProps) => {
     try {
-        const { database } = await createAdminClient();
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        const cookieStore = cookies();
+        const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-        const banks = await database.listDocuments(
-            DATABASE_ID!,
-            BANK_COLLECTION_ID!,
-            [Query.equal('userId', [userId])]
-        );
+        const res = await fetch(`${base}/api/banks/user/${userId}`, {
+            headers: {
+                cookie: cookieHeader,
+            },
+            cache: 'no-store',
+        });
 
-        return parseStringify(banks.documents);
+        if (!res.ok) {
+            console.error('getBanks backend error', await res.text());
+            return null;
+        }
+
+        const banks = await res.json();
+        return parseStringify(banks);
     }  catch (error) {
 
         console.log('error', error);
@@ -277,15 +306,20 @@ export const getBanks = async ({ userId }: getBanksProps) => {
 
 export const getBank = async ({ documentId }: getBankProps) => {
     try {
-        const { database } = await createAdminClient();
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        const cookieStore = cookies();
+        const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-        const bank = await database.listDocuments(
-            DATABASE_ID!,
-            BANK_COLLECTION_ID!,
-            [Query.equal('$id', [documentId])]
-        );
+        const res = await fetch(`${base}/api/banks/${documentId}`, {
+            headers: {
+                cookie: cookieHeader,
+            },
+            cache: 'no-store',
+        });
 
-        return parseStringify(bank.documents[0]);
+        if (!res.ok) return null;
+        const bank = await res.json();
+        return parseStringify(bank);
     }  catch (error) {
         console.log('error', error);
     }
@@ -293,17 +327,20 @@ export const getBank = async ({ documentId }: getBankProps) => {
 
 export const getBankByAccountId = async ({ accountId }: getBankByAccountIdProps) => {
     try {
-        const { database } = await createAdminClient();
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        const cookieStore = cookies();
+        const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-        const bank = await database.listDocuments(
-            DATABASE_ID!,
-            BANK_COLLECTION_ID!,
-            [Query.equal('accountId', [accountId])]
-        );
+        const res = await fetch(`${base}/api/banks/by-account/${accountId}`, {
+            headers: {
+                cookie: cookieHeader,
+            },
+            cache: 'no-store',
+        });
 
-        if(bank.total !== 1) return null;
-
-        return parseStringify(bank.documents[0]);
+        if (!res.ok) return null;
+        const bank = await res.json();
+        return parseStringify(bank);
     }  catch (error) {
         console.log('error', error);
     }
