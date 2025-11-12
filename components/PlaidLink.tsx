@@ -1,77 +1,74 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Button } from './ui/button'
-import { PlaidLinkOnSuccess, PlaidLinkOptions, usePlaidLink } from 'react-plaid-link'
 import { useRouter } from 'next/navigation';
-import { createLinkToken, exchangePublicToken } from '@/lib/actions/user.actions';
 import Image from 'next/image';
 
+// Simple manual bank link component that posts to backend to create a bank record
 const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
     const router = useRouter();
+    const [open, setOpen] = useState(false);
+    const [bankName, setBankName] = useState('');
+    const [accountId, setAccountId] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const [token, setToken] = useState('');
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-    useEffect(() => {
-        const getLinkToken = async () => {
-            const data = await createLinkToken(user);
-
-            setToken(data?.linkToken);
+    const submit = async () => {
+        if (!user || !bankName || !accountId) return;
+        setLoading(true);
+        try {
+            const res = await fetch(`${base}/api/banks/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: (user as any).$id || (user as any).id || (user as any).userId, bankName, accountId }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                router.push('/');
+            } else {
+                console.error('Create bank failed', data);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+            setOpen(false);
+        }
     }
 
-    getLinkToken();
-}, [user]);
-    
-    const onSuccess = useCallback<PlaidLinkOnSuccess>(async (public_token: string) => {
-        await exchangePublicToken({publicToken: public_token,
-        user});
-
-        router.push('/')
-    }, [user])
-    
-    const config: PlaidLinkOptions = {
-        token,
-        onSuccess
+    if (open) {
+        return (
+            <div className="p-4 border rounded-md bg-white">
+                <h3 className="text-lg font-semibold mb-2">Add a bank (manual)</h3>
+                <div className="flex flex-col gap-2">
+                    <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name" className="input-class" />
+                    <input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="Account ID (public)" className="input-class" />
+                    <div className="flex gap-2">
+                        <Button onClick={submit} disabled={loading}>{loading ? 'Adding...' : 'Add Bank'}</Button>
+                        <Button variant='ghost' onClick={() => setOpen(false)}>Cancel</Button>
+                    </div>
+                </div>
+            </div>
+        )
     }
 
-    const { open, ready } = usePlaidLink(config);
-
-  return (
-    <>
-    {variant === 'primary' ? (
-        <Button
-        onClick={() => open()}
-        disabled={!ready}
-        className="plaidlink-primary"
-        >
-            Connect your bank account
-        </Button>
-
-    ): variant === 'ghost' ? (
-        <Button variant='ghost' onClick={() => open()} className="plaidlink-ghost">
-            <Image 
-            src = "/icons/connect-bank.svg"
-            alt = "connect bank"
-            width = {24}
-            height = {24}
-            />
-            <p className='hidden text-[16px] font-semibold text-black-2 xl:block'>
-                Connect bank
-            </p>
-        </Button >
-    ) : (
-        <Button onClick={() => open()} className="plaidlink-default">
-            <Image 
-            src = "/icons/connect-bank.svg"
-            alt = "connect bank"
-            width = {24}
-            height = {24}
-            />
-            <p className='text-[16px] font-semibold text-black-2'>
-                Connect bank
-            </p>
-        </Button>
-    )}
-    </>
-  )
+    return (
+        <>
+        {variant === 'primary' ? (
+            <Button onClick={() => setOpen(true)} className="plaidlink-primary">Connect your bank account</Button>
+        ) : variant === 'ghost' ? (
+            <Button variant='ghost' onClick={() => setOpen(true)} className="plaidlink-ghost">
+                <Image src="/icons/connect-bank.svg" alt="connect bank" width={24} height={24} />
+                <p className='hidden text-[16px] font-semibold text-black-2 xl:block'>Connect bank</p>
+            </Button>
+        ) : (
+            <Button onClick={() => setOpen(true)} className="plaidlink-default">
+                <Image src="/icons/connect-bank.svg" alt="connect bank" width={24} height={24} />
+                <p className='text-[16px] font-semibold text-black-2'>Connect bank</p>
+            </Button>
+        )}
+        </>
+    )
 }
 
 export default PlaidLink
