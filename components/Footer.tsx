@@ -4,6 +4,11 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation';
 import React from 'react'
 
+type FooterProps = {
+  user: User | null;
+  type?: 'desktop' | 'mobile';
+};
+
 const Footer = ({ user, type = 'desktop' }:FooterProps) => {
 
     const router = useRouter();

@@ -3,6 +3,11 @@ import { Button } from './ui/button'
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
+type PlaidLinkProps = {
+  user: User | null;
+  variant?: 'primary' | 'ghost' | 'default';
+}
+
 // Simple manual bank link component that posts to backend to create a bank record
 const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
     const router = useRouter();
