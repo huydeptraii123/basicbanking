@@ -28,20 +28,39 @@ export default async function RootLayout({
   const loggedIn = await getLoggedInUser();
 
   if(!loggedIn) router.push('/sign-in');
+
+  // Ensure all required User fields exist
+  const user: User | null = loggedIn
+    ? {
+        $id: loggedIn.$id ?? '',
+        email: loggedIn.email ?? '',
+        userId: loggedIn.userId ?? loggedIn.id ?? '',
+        dwollaCustomerUrl: loggedIn.dwollaCustomerUrl ?? '',
+        dwollaCustomerId: loggedIn.dwollaCustomerId ?? '',
+        firstName: loggedIn.firstName ?? '',
+        lastName: loggedIn.lastName ?? '',
+        name: loggedIn.name ?? '',
+        address1: loggedIn.address1 ?? '',
+        city: loggedIn.city ?? '',
+        state: loggedIn.state ?? '',
+        postalCode: loggedIn.postalCode ?? '',
+        dateOfBirth: loggedIn.dateOfBirth ?? '',
+        ssn: loggedIn.ssn ?? '',
+      }
+    : null;
+
   return (
     <main className="flex h-screen w-full font-inter">
-        <Sidebar user={loggedIn} />
+        <Sidebar user={user} />
         <div className="flex size-full flex-col">
           <div className="root-layout">
             <Image src="/icons/logo.svg" width ={30} height={30} alt="logo" />
             <div>
-              <MobileNav user= {loggedIn}/>
+              <MobileNav user={user}/>
             </div>
           </div>
           {children}
         </div>
-
-        
     </main>
   );
 }
