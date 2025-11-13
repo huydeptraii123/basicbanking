@@ -9,12 +9,20 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
     const [open, setOpen] = useState(false);
     const [bankName, setBankName] = useState('');
     const [accountId, setAccountId] = useState('');
+    const [amount, setAmount] = useState('');
     const [loading, setLoading] = useState(false);
 
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
     const submit = async () => {
-        if (!user || !bankName || !accountId) return;
+        if (!user) {
+            alert('Bạn cần đăng nhập để thêm tài khoản ngân hàng');
+            return;
+        }
+        if (!bankName || !accountId) {
+            alert('Vui lòng nhập tên ngân hàng và mã tài khoản');
+            return;
+        }
         setLoading(true);
         try {
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -24,16 +32,18 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
             const res = await fetch(`${base}/api/banks/create`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ userId: (user as any).$id || (user as any).id || (user as any).userId, bankName, accountId }),
+                body: JSON.stringify({ userId: (user as any).$id || (user as any).id || (user as any).userId, bankName, accountId, balance: amount ? parseFloat(amount) : 0 }),
             });
             const data = await res.json();
             if (res.ok) {
                 router.push('/');
             } else {
                 console.error('Create bank failed', data);
+                alert('Tạo tài khoản thất bại: ' + (data?.error || JSON.stringify(data)));
             }
         } catch (err) {
             console.error(err);
+            alert('Lỗi khi kết nối tới server. Xem console để biết chi tiết.');
         } finally {
             setLoading(false);
             setOpen(false);
@@ -47,6 +57,7 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
                 <div className="flex flex-col gap-2">
                     <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name" className="input-class" />
                     <input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="Account ID (public)" className="input-class" />
+                    <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Initial balance (e.g. 123.45)" className="input-class" />
                     <div className="flex gap-2">
                         <Button onClick={submit} disabled={loading}>{loading ? 'Adding...' : 'Add Bank'}</Button>
                         <Button variant='ghost' onClick={() => setOpen(false)}>Cancel</Button>

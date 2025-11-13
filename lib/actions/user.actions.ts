@@ -146,8 +146,22 @@ export async function getLoggedInUser() {
         });
 
         if (!res.ok) return null;
-        const user = await res.json();
-        return user;
+        const body = await res.json();
+        const u = body.user || null;
+        if (!u) return null;
+
+        // Map backend user shape to the shape frontend expects (compat with Appwrite fields)
+        const mapped = {
+            $id: u.id,
+            id: u.id,
+            email: u.email,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            dwollaCustomerId: u.dwollaCustomerId,
+            dwollaCustomerUrl: u.dwollaCustomerUrl,
+        };
+
+        return mapped;
     } catch (error) {
         return null;
     }

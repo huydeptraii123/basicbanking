@@ -184,15 +184,25 @@ export function encryptId(id: string) {
 }
 
 export function decryptId(id: string) {
-  return atob(id);
+  try {
+    // Only attempt base64 decode when the string looks like base64 to avoid
+    // decoding binary or other unexpected values that produce gibberish.
+    const base64Regex = /^[A-Za-z0-9+/=]+$/;
+    if (base64Regex.test(id)) {
+      return atob(id);
+    }
+    return id;
+  } catch (e) {
+    return id;
+  }
 }
 
 export const getTransactionStatus = (date: Date) => {
-  const today = new Date();
-  const twoDaysAgo = new Date(today);
-  twoDaysAgo.setDate(today.getDate() - 2);
+  // const today = new Date();
+  // const twoDaysAgo = new Date(today);
+  // twoDaysAgo.setDate(today.getDate() - 2);
 
-  return date > twoDaysAgo ? "Processing" : "Success";
+  return "Success";
 };
 
 export const authFormSchema = (type: string) => z.object({
