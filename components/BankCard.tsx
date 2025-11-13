@@ -1,10 +1,47 @@
+"use client"
+
 import { formatAmount } from '@/lib/utils'
 import Image from 'next/image'
 import Link from 'next/link'
-import React from 'react'
+import React, { useState } from 'react'
 import Copy from './Copy'
+import { useRouter } from 'next/navigation'
 
 const BankCard = ({ account, userName, showBalance = true}: CreditCardProps) => {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const handleDisconnect = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!confirm('Bạn có chắc muốn ngắt kết nối tài khoản này?')) return;
+    try {
+      setLoading(true);
+      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers: any = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${base}/api/banks/${account.appwriteItemId}`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => 'error');
+        alert('Xóa thất bại: ' + txt);
+        return;
+      }
+
+      // refresh page to reflect removal
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi xóa tài khoản. Xem console.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="flex flex-col">
       <Link href={`/transaction-history/?id=${account.appwriteItemId}`} className="bank-card">
@@ -56,7 +93,12 @@ const BankCard = ({ account, userName, showBalance = true}: CreditCardProps) => 
         />
       </Link>
 
-      {showBalance && <Copy title={account?.sharableId}/>}
+      <div className="mt-2 flex items-center gap-2">
+        {showBalance && <Copy title={account?.sharableId}/>}
+        <button onClick={handleDisconnect} disabled={loading} className="text-sm text-red-600 hover:underline">
+          {loading ? 'Disconnecting...' : 'Disconnect'}
+        </button>
+      </div>
     </div>
   )
 }

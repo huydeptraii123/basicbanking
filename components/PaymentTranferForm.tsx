@@ -26,15 +26,19 @@ import { Textarea } from "./ui/textarea";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
-  name: z.string().min(4, "Transfer note is too short"),
-  amount: z.string().min(4, "Amount is too short"),
-  senderBank: z.string().min(4, "Please select a valid bank account"),
-  sharableId: z.string().min(8, "Please select a valid sharable Id"),
+  // note is optional in the UI — make it optional here
+  name: z.string().optional(),
+  // accept any non-empty amount string (we parse to float later)
+  amount: z.string().min(1, "Amount is required"),
+  senderBank: z.string().min(1, "Please select a valid bank account"),
+  // receiver id/public account may be plain text or base64 — keep validation loose
+  sharableId: z.string().min(1, "Please enter a receiver account id"),
 });
 
 const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,24 +53,64 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
 
   const submit = async (data: z.infer<typeof formSchema>) => {
     setIsLoading(true);
+    setErrorMessage(null);
 
     try {
+      console.log('Transfer submit payload', data);
       const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const receiverAccountId = decryptId(data.sharableId);
+      // sanitize receiver sharable id from the form before decoding/sending
+      const rawShar = (data.sharableId || '').toString();
+      console.log('raw sharableId from form:', JSON.stringify(rawShar));
+      let cleanedShar = rawShar.trim();
+      // if contains non-printable/control characters, try digits-only fallback
+      if (!/^[\x20-\x7E]+$/.test(cleanedShar)) {
+        const digits = rawShar.replace(/\D+/g, '');
+        if (digits && digits.length >= 3) {
+          cleanedShar = digits;
+          console.log('cleaned sharableId (digits fallback):', cleanedShar);
+        } else {
+          // remove non-ascii then trim
+          const asciiOnly = rawShar.replace(/[^\x20-\x7E]/g, '').trim();
+          cleanedShar = asciiOnly;
+          console.log('cleaned sharableId (ascii strip):', cleanedShar);
+        }
+      }
+      const receiverAccountId = cleanedShar;
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const headers: any = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  console.log('Calling backend banks lookup', { receiverAccountId, senderBankId: data.senderBank, base });
+  const receiverRes = await fetch(`${base}/api/banks/by-account/${encodeURIComponent(receiverAccountId)}`, { headers, credentials: 'include' });
+  if (!receiverRes.ok) {
+    const body = await receiverRes.json().catch(() => ({}));
+    const msg = body?.error || `receiver lookup failed (${receiverRes.status})`;
+    console.error('receiver lookup failed', receiverRes.status, body);
+    setErrorMessage(msg);
+    setIsLoading(false);
+    return;
+  }
+  const senderRes = await fetch(`${base}/api/banks/${encodeURIComponent((data.senderBank || '').trim())}`, { headers, credentials: 'include' });
+  if (!senderRes.ok) {
+    const body = await senderRes.json().catch(() => ({}));
+    const msg = body?.error || `sender lookup failed (${senderRes.status})`;
+    console.error('sender lookup failed', senderRes.status, body);
+    setErrorMessage(msg);
+    setIsLoading(false);
+    return;
+  }
+  const receiverBank = await receiverRes.json();
+  const senderBank = await senderRes.json();
 
-  const receiverRes = await fetch(`${base}/api/banks/by-account/${receiverAccountId}`, { headers });
-  const senderRes = await fetch(`${base}/api/banks/${data.senderBank}`, { headers });
-      if (!receiverRes.ok || !senderRes.ok) throw new Error('bank lookup failed');
-      const receiverBank = await receiverRes.json();
-      const senderBank = await senderRes.json();
+      // validate numeric amount
+      const parsedAmount = parseFloat(data.amount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        throw new Error('Invalid amount');
+      }
 
       // create transaction record locally (we are not calling Dwolla)
       const transaction = {
-        name: data.name,
-        amount: parseFloat(data.amount),
+        name: data.name || undefined,
+        amount: parsedAmount,
         senderId: (senderBank as any).userId,
         senderBankId: (senderBank as any).id,
         receiverId: (receiverBank as any).userId,
@@ -76,9 +120,11 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         category: 'Transfer'
       };
 
+      console.log('Creating transaction', transaction);
       const txRes = await fetch(`${base}/api/transactions/create`, {
         method: 'POST',
         headers,
+        credentials: 'include',
         body: JSON.stringify(transaction),
       });
 
@@ -86,10 +132,13 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         form.reset();
         router.push('/');
       } else {
-        console.error('create transaction failed', await txRes.json());
+        const body = await txRes.json().catch(() => ({}));
+        console.error('create transaction failed', body);
+        setErrorMessage(body?.error || 'Transaction failed');
       }
     } catch (error) {
       console.error("Submitting create transfer request failed: ", error);
+      setErrorMessage((error as any)?.message || 'Transfer failed');
     }
 
     setIsLoading(false);
@@ -98,6 +147,11 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(submit)} className="flex flex-col">
+        {errorMessage && (
+          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+            {errorMessage}
+          </div>
+        )}
         <FormField
           control={form.control}
           name="senderBank"
