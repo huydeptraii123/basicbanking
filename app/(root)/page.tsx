@@ -11,10 +11,28 @@ const Home = async ({ searchParams: { id, page}}:SearchParamProps) => {
   const currentPage = Number(page as string) || 1;
   const loggedIn = await getLoggedInUser()
 
-
   if (!loggedIn) {
     redirect('/sign-in')
   }
+
+  // Ensure all required User fields exist
+  const user: User = {
+    $id: loggedIn.$id ?? '',
+    email: loggedIn.email ?? '',
+    userId: loggedIn.id ?? '',
+    dwollaCustomerUrl: loggedIn.dwollaCustomerUrl ?? '',
+    dwollaCustomerId: loggedIn.dwollaCustomerId ?? '',
+    firstName: loggedIn.firstName ?? '',
+    lastName: loggedIn.lastName ?? '',
+    name: (loggedIn as any)['name'] ?? '',
+    address1: (loggedIn as any)['address1'] ?? '',
+    city: (loggedIn as any)['city'] ?? '',
+    state: (loggedIn as any)['state'] ?? '',
+    postalCode: (loggedIn as any)['postalCode'] ?? '',
+    dateOfBirth: (loggedIn as any)['dateOfBirth'] ?? '',
+    ssn: (loggedIn as any)['ssn'] ?? '',
+  };
+
   const accounts = await getAccounts({ userId: loggedIn?.$id! })
 
   if(!accounts) return;
@@ -55,7 +73,7 @@ const Home = async ({ searchParams: { id, page}}:SearchParamProps) => {
       </div>
 
       <RightSidebar 
-        user={loggedIn}
+        user={user}
         transactions={account?.transactions}
         banks={accountsData?.slice(0, 2)}
       />
