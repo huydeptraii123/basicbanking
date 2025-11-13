@@ -39,13 +39,13 @@ export default async function RootLayout({
         dwollaCustomerId: loggedIn.dwollaCustomerId ?? '',
         firstName: loggedIn.firstName ?? '',
         lastName: loggedIn.lastName ?? '',
-        name: loggedIn.name ?? '',
-        address1: loggedIn.address1 ?? '',
-        city: loggedIn.city ?? '',
-        state: loggedIn.state ?? '',
-        postalCode: loggedIn.postalCode ?? '',
-        dateOfBirth: loggedIn.dateOfBirth ?? '',
-        ssn: loggedIn.ssn ?? '',
+  name: (loggedIn as any)['name'] ?? '',
+  address1: (loggedIn as any)['address1'] ?? '',
+  city: (loggedIn as any)['city'] ?? '',
+  state: (loggedIn as any)['state'] ?? '',
+  postalCode: (loggedIn as any)['postalCode'] ?? '',
+  dateOfBirth: (loggedIn as any)['dateOfBirth'] ?? '',
+  ssn: (loggedIn as any)['ssn'] ?? '',
       }
     : null;
 
