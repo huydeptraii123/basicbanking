@@ -34,7 +34,7 @@ export default async function RootLayout({
     ? {
         $id: loggedIn.$id ?? '',
         email: loggedIn.email ?? '',
-        userId: loggedIn.userId ?? loggedIn.id ?? '',
+        userId: loggedIn.id ?? '',
         dwollaCustomerUrl: loggedIn.dwollaCustomerUrl ?? '',
         dwollaCustomerId: loggedIn.dwollaCustomerId ?? '',
         firstName: loggedIn.firstName ?? '',
