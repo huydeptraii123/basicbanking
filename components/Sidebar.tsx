@@ -9,6 +9,10 @@ import { usePathname } from 'next/navigation'
 import Footer from './Footer'
 import PlaidLink from './PlaidLink'
 
+interface SiderbarProps {
+  user: User | null;
+}
+
 const Sidebar = ({ user }: SiderbarProps) => {
     const pathname = usePathname();
 
