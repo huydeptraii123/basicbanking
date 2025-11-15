@@ -17,8 +17,6 @@ model User {
   password          String
   firstName         String?
   lastName          String?
-  dwollaCustomerId  String?
-  dwollaCustomerUrl String?
   createdAt         DateTime @default(now())
   banks             Bank[]
 }
@@ -30,7 +28,6 @@ model Bank {
   accountId        String?
   balance          Float?
   accessToken      String?
-  fundingSourceUrl String?
   sharableId       String?
   createdAt        DateTime @default(now())
 

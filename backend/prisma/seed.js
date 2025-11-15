@@ -22,8 +22,6 @@ async function main() {
           password: u.password || 'seed-pass',
           firstName: u.firstName || null,
           lastName: u.lastName || null,
-          dwollaCustomerId: u.dwollaCustomerId || null,
-          dwollaCustomerUrl: u.dwollaCustomerUrl || null,
         } });
       } catch (e) {
         console.warn('User seed skipped or duplicate:', e.message);

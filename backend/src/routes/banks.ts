@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import prisma from '../prisma';
+import Sentry from '../sentry';
 
 const router = Router();
 
@@ -9,6 +10,7 @@ router.get('/all', async (req, res) => {
     const banks = await prisma.bank.findMany();
     return res.json(banks);
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error(err);
     return res.status(500).json({ error: err.message || 'list banks error' });
   }
@@ -29,6 +31,7 @@ router.get('/sync-accountIds', async (req, res) => {
     }
     return res.json({ updated: updates.length, details: updates });
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error(err);
     return res.status(500).json({ error: err.message || 'sync error' });
   }
@@ -40,7 +43,7 @@ router.post('/exchange-public-token', async (req, res) => {
   return res.status(501).json({ error: 'Plaid exchange is disabled in local-only mode' });
 });
 
-// POST /api/banks/create - create a bank record locally without Plaid/Dwolla
+// POST /api/banks/create - create a bank record locally without Plaid
 router.post('/create', async (req, res) => {
   try {
   const { userId, bankName, accountId, accessToken, sharableId, balance } = req.body;
@@ -53,10 +56,11 @@ router.post('/create', async (req, res) => {
 
   // Store bankName into bankId field (previously used for Plaid item id).
   // Keep accountId separate so name and account code are not identical.
-  const created = await prisma.bank.create({ data: { userId, bankId: name, accountId: accountId, balance: balance ? Number(balance) : 0, accessToken: accessToken || null, fundingSourceUrl: null, sharableId: shar } });
+  const created = await prisma.bank.create({ data: { userId, bankId: name, accountId: accountId, balance: balance ? Number(balance) : 0, accessToken: accessToken || null, sharableId: shar } });
 
     return res.json({ ok: true, bank: created });
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error(err);
     return res.status(500).json({ error: err.message || 'create bank error' });
   }

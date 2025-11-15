@@ -11,7 +11,9 @@ const Home = async ({ searchParams: { id, page}}:SearchParamProps) => {
   const currentPage = Number(page as string) || 1;
   const loggedIn = await getLoggedInUser()
 
+  console.log("loggedIn home page: ", loggedIn);
   if (!loggedIn) {
+    console.log("co goi ham if");
     redirect('/sign-in')
   }
 
@@ -20,8 +22,6 @@ const Home = async ({ searchParams: { id, page}}:SearchParamProps) => {
     $id: loggedIn.$id ?? '',
     email: loggedIn.email ?? '',
     userId: loggedIn.id ?? '',
-    dwollaCustomerUrl: loggedIn.dwollaCustomerUrl ?? '',
-    dwollaCustomerId: loggedIn.dwollaCustomerId ?? '',
     firstName: loggedIn.firstName ?? '',
     lastName: loggedIn.lastName ?? '',
     name: (loggedIn as any)['name'] ?? '',

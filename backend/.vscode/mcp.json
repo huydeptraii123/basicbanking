@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "Sentry": {
+      "url": "https://mcp.sentry.dev/mcp/huyyy/bankweb-new-backend",
+      "type": "http"
+    }
+  }
+}

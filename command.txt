@@ -3,3 +3,19 @@ npm install
 npm run dev
 
 npm run dev
+
+set BASE_URL=http://host.docker.internal:4000
+set USER_EMAIL=test@example.com
+set USER_PASSWORD=supersecret
+
+set USER_EMAIL=1@gmail.com
+set USER_PASSWORD=123456
+docker run --rm ^
+  -v %cd%:/work ^
+  -w /work/backend ^
+  --env BASE_URL --env USER_EMAIL --env USER_PASSWORD ^
+  grafana/k6:latest run tests/load/login-k6.js
+
+  curl -i -X POST http://localhost:4000/api/auth/signin ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"kristopherhuy@gmail.com\",\"password\":\"123456\"}"

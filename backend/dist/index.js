@@ -12,6 +12,7 @@ const auth_1 = __importDefault(require("./routes/auth"));
 const user_1 = __importDefault(require("./routes/user"));
 const banks_1 = __importDefault(require("./routes/banks"));
 const transactions_1 = __importDefault(require("./routes/transactions"));
+const sentry_1 = __importDefault(require("./sentry"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
@@ -25,6 +26,17 @@ app.use('/api/auth', auth_1.default);
 app.use('/api/user', user_1.default);
 app.use('/api/banks', banks_1.default);
 app.use('/api/transactions', transactions_1.default);
+if (typeof sentry_1.default.setupExpressErrorHandler === 'function') {
+    sentry_1.default.setupExpressErrorHandler(app);
+}
+app.use((err, _req, res, _next) => {
+    const status = res.statusCode >= 400 ? res.statusCode : 500;
+    const eventId = res.sentry;
+    res.status(status).json({
+        message: err.message || 'Unexpected server error',
+        eventId,
+    });
+});
 const port = process.env.PORT || 4000;
 if (require.main === module) {
     app.listen(port, () => {

@@ -57,15 +57,15 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
 
     if (open) {
         return (
-            <div className="p-4 border rounded-md bg-white">
-                <h3 className="text-lg font-semibold mb-2">Add a bank (manual)</h3>
-                <div className="flex flex-col gap-2">
-                    <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name" className="input-class" />
-                    <input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="Account ID (public)" className="input-class" />
-                    <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Initial balance (e.g. 123.45)" className="input-class" />
-                    <div className="flex gap-2">
-                        <Button onClick={submit} disabled={loading}>{loading ? 'Adding...' : 'Add Bank'}</Button>
-                        <Button variant='ghost' onClick={() => setOpen(false)}>Cancel</Button>
+            <div className="p-6 rounded-xl border border-gray-200 bg-white shadow-md max-w-sm mx-auto">
+                <h3 className="text-lg font-semibold mb-4 text-center">Add a bank (manual)</h3>
+                <div className="flex flex-col gap-3">
+                    <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name" className="px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    <input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="Account ID (public)" className="px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Initial balance (e.g. 123.45)" className="px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    <div className="flex gap-3 justify-center mt-2 bg-gradient-to-r from-blue-100 via-blue-200 to-blue-100 rounded-lg p-4">
+                        <button onClick={submit} disabled={loading} className="px-4 py-2 rounded bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">{loading ? 'Adding...' : 'Add Bank'}</button>
+                        <button onClick={() => setOpen(false)} className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-semibold shadow hover:bg-gray-300 transition">Cancel</button>
                     </div>
                 </div>
             </div>

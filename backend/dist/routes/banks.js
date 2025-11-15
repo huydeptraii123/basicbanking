@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = __importDefault(require("../prisma"));
+const sentry_1 = __importDefault(require("../sentry"));
 const router = (0, express_1.Router)();
 // Dev/debug: list all banks
 router.get('/all', async (req, res) => {
@@ -13,6 +14,7 @@ router.get('/all', async (req, res) => {
         return res.json(banks);
     }
     catch (err) {
+        sentry_1.default.captureException(err);
         console.error(err);
         return res.status(500).json({ error: err.message || 'list banks error' });
     }
@@ -33,6 +35,7 @@ router.get('/sync-accountIds', async (req, res) => {
         return res.json({ updated: updates.length, details: updates });
     }
     catch (err) {
+        sentry_1.default.captureException(err);
         console.error(err);
         return res.status(500).json({ error: err.message || 'sync error' });
     }
@@ -42,7 +45,7 @@ router.get('/sync-accountIds', async (req, res) => {
 router.post('/exchange-public-token', async (req, res) => {
     return res.status(501).json({ error: 'Plaid exchange is disabled in local-only mode' });
 });
-// POST /api/banks/create - create a bank record locally without Plaid/Dwolla
+// POST /api/banks/create - create a bank record locally without Plaid
 router.post('/create', async (req, res) => {
     try {
         const { userId, bankName, accountId, accessToken, sharableId, balance } = req.body;
@@ -54,10 +57,11 @@ router.post('/create', async (req, res) => {
         const shar = sharableId || accountId;
         // Store bankName into bankId field (previously used for Plaid item id).
         // Keep accountId separate so name and account code are not identical.
-        const created = await prisma_1.default.bank.create({ data: { userId, bankId: name, accountId: accountId, balance: balance ? Number(balance) : 0, accessToken: accessToken || null, fundingSourceUrl: null, sharableId: shar } });
+        const created = await prisma_1.default.bank.create({ data: { userId, bankId: name, accountId: accountId, balance: balance ? Number(balance) : 0, accessToken: accessToken || null, sharableId: shar } });
         return res.json({ ok: true, bank: created });
     }
     catch (err) {
+        sentry_1.default.captureException(err);
         console.error(err);
         return res.status(500).json({ error: err.message || 'create bank error' });
     }

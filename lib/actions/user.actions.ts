@@ -1,15 +1,12 @@
 'use server';
 
-import { ID, Query } from "node-appwrite";
+import { ID } from "node-appwrite";
 import { createAdminClient, createSessionClient } from "../appwrite";
 import { cookies } from "next/headers";
-import { encryptId, extractCustomerIdFromUrl, parseStringify } from "../utils";
-import { CountryCode, ProcessorTokenCreateRequest, ProcessorTokenCreateRequestProcessorEnum, Products } from "plaid";
-import { count } from "console";
+import { encryptId, parseStringify } from "../utils";
+import { CountryCode, Products } from "plaid";
 import { plaidClient } from "../plaid";
-import { create } from "domain";
 import { revalidatePath } from "next/cache";
-import { addFundingSource, createDwollaCustomer } from "./dwolla.actions";
 
 const {
     APPWRITE_DATABASE_ID: DATABASE_ID, 
@@ -88,15 +85,6 @@ export const signUp = async ( {password, ...userData}: SignUpParams) => {
 
         if(!newUserAccount) throw new Error("Error creating user" );
 
-        const dwollaCustomerUrl = await createDwollaCustomer({
-            ...userData,
-            type: "personal",
-        });
-
-        if(!dwollaCustomerUrl) throw new Error("Error creating dwolla customer" );
-
-        const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
-
         const newUser = await database.createDocument(
             DATABASE_ID!,
             USER_COLLECTION_ID!,
@@ -104,8 +92,6 @@ export const signUp = async ( {password, ...userData}: SignUpParams) => {
             {
                 ...userData,
                 userId: newUserAccount.$id,
-                dwollaCustomerId,
-                dwollaCustomerUrl
             }
         )
 
@@ -157,8 +143,6 @@ export async function getLoggedInUser() {
             email: u.email,
             firstName: u.firstName,
             lastName: u.lastName,
-            dwollaCustomerId: u.dwollaCustomerId,
-            dwollaCustomerUrl: u.dwollaCustomerUrl,
         };
 
         return mapped;
@@ -169,10 +153,10 @@ export async function getLoggedInUser() {
 
 export const logoutAccount = async () => {
     try {
-        const { account } = await createSessionClient();
-        cookies().delete("appwrite-session");
-
-        await account.deleteSession("current");
+        // Chỉ xóa cookie JWT phía client
+        if (typeof document !== 'undefined') {
+            document.cookie = 'token=; Max-Age=0; path=/;';
+        }
         return true;
     } catch (error) {
         console.log('error', error);
@@ -205,7 +189,7 @@ export const createLinkToken = async (user: User) => {
 }
 
 export const createBankAccount = async ({
-    userId, bankId, accountId, accessToken, fundingSourceUrl, sharableId,
+    userId, bankId, accountId, accessToken, sharableId,
 }: createBankAccountProps
 ) => {
     try {
@@ -254,32 +238,13 @@ export const exchangePublicToken = async ({publicToken, user}: exchangePublicTok
         });
 
         const accountData = accountsResponse.data.accounts[0];
-        const request: ProcessorTokenCreateRequest = {
-            access_token: accessToken,
-            account_id: accountData.account_id,
-            processor: "dwolla" as ProcessorTokenCreateRequestProcessorEnum,
-            client_id: process.env.PLAID_CLIENT_ID!,
-            secret: process.env.PLAID_SECRET!,
-        };
-
-        const processorResponse = await plaidClient.processorTokenCreate(request);
-
-        const processorToken = processorResponse.data.processor_token;
-
-        const fundingSourceUrl = await addFundingSource({
-            dwollaCustomerId: user.dwollaCustomerId,
-            processorToken,
-            bankName: accountData.name,
-        });
-
-        if (!fundingSourceUrl) throw Error;
+        if (!accountData) throw new Error('No account data returned by Plaid');
 
         await createBankAccount({
             userId: user.$id,
-            bankId: itemId,
+            bankId: accountData.name || accountData.official_name || itemId,
             accountId:accountData.account_id,
             accessToken,
-            fundingSourceUrl,
             sharableId: encryptId(accountData.account_id),
         });
 

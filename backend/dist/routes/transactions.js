@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = __importDefault(require("../prisma"));
 const auth_1 = require("../middleware/auth");
+const sentry_1 = __importDefault(require("../sentry"));
 const router = (0, express_1.Router)();
 // POST /api/transactions/create
 // This endpoint now performs the transfer server-side:
@@ -40,7 +41,7 @@ router.post('/create', auth_1.authMiddleware, async (req, res) => {
         const receiverBalance = (_b = receiverBank.balance) !== null && _b !== void 0 ? _b : 0;
         if (senderBalance < amount)
             return res.status(400).json({ error: 'Insufficient funds' });
-        // perform atomic updates and create transaction
+        // Logic chuyển tiền
         const result = await prisma_1.default.$transaction(async (tx) => {
             const updatedSender = await tx.bank.update({ where: { id: senderBankId }, data: { balance: senderBalance - amount } });
             const updatedReceiver = await tx.bank.update({ where: { id: receiverBankId }, data: { balance: receiverBalance + amount } });
@@ -58,6 +59,7 @@ router.post('/create', auth_1.authMiddleware, async (req, res) => {
         return res.json({ transaction: result.createdTx, sender: result.updatedSender, receiver: result.updatedReceiver });
     }
     catch (err) {
+        sentry_1.default.captureException(err);
         console.error(err);
         return res.status(500).json({ error: err.message || 'create transaction error' });
     }

@@ -7,8 +7,6 @@ type User = {
   password?: string;
   firstName?: string;
   lastName?: string;
-  dwollaCustomerId?: string | null;
-  dwollaCustomerUrl?: string | null;
   createdAt?: string;
 };
 
@@ -18,7 +16,6 @@ type Bank = {
   bankId?: string;
   accountId?: string;
   accessToken?: string;
-  fundingSourceUrl?: string | null;
   sharableId?: string;
   createdAt?: string;
 };

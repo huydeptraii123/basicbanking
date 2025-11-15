@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-// We'll call backend endpoints directly (no external Dwolla/Plaid)
+// We'll call backend endpoints directly (no external payment processor)
 import { decryptId } from "@/lib/utils";
 
 import { BankDropdown } from "./BankDropdown";
@@ -107,7 +107,7 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         throw new Error('Invalid amount');
       }
 
-      // create transaction record locally (we are not calling Dwolla)
+      // create transaction record locally (no third-party processor)
       const transaction = {
         name: data.name || undefined,
         amount: parsedAmount,

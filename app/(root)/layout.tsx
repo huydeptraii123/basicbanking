@@ -1,66 +1,28 @@
-"use client";
-
-import MobileNav from "@/components/MobileNav";
-import Sidebar from "@/components/Sidebar";
+// app/(root)/layout.tsx
+import MobileNavWrapper from "./MobileNavWrapper"; // client component
+import SidebarWrapper from "./SidebarWrapper"; // client component
 import { getLoggedInUser } from "@/lib/actions/user.actions";
-import { log } from "console";
 import Image from "next/image";
-import { redirect, useRouter } from "next/navigation";
-import * as Sentry from '@sentry/nextjs';
-import type { Metadata } from 'next';
+import { redirect } from "next/navigation";
 
-// Add or edit your "generateMetadata" to include the Sentry trace data:
-// export function generateMetadata(): Metadata {
-//   return {
-//     // ... your existing metadata
-//     other: {
-//       ...Sentry.getTraceData()
-//     }
-//   };
-// }
-
-export default async function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  const router = useRouter();
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const loggedIn = await getLoggedInUser();
+  if (!loggedIn) redirect("/sign-in");
 
-  if(!loggedIn) router.push('/sign-in');
-
-  // Ensure all required User fields exist
-  const user: User | null = loggedIn
-    ? {
-        $id: loggedIn.$id ?? '',
-        email: loggedIn.email ?? '',
-        userId: loggedIn.id ?? '',
-        dwollaCustomerUrl: loggedIn.dwollaCustomerUrl ?? '',
-        dwollaCustomerId: loggedIn.dwollaCustomerId ?? '',
-        firstName: loggedIn.firstName ?? '',
-        lastName: loggedIn.lastName ?? '',
-  name: (loggedIn as any)['name'] ?? '',
-  address1: (loggedIn as any)['address1'] ?? '',
-  city: (loggedIn as any)['city'] ?? '',
-  state: (loggedIn as any)['state'] ?? '',
-  postalCode: (loggedIn as any)['postalCode'] ?? '',
-  dateOfBirth: (loggedIn as any)['dateOfBirth'] ?? '',
-  ssn: (loggedIn as any)['ssn'] ?? '',
-      }
-    : null;
+  const user = loggedIn; // hoặc map fields như bạn muốn
 
   return (
     <main className="flex h-screen w-full font-inter">
-        <Sidebar user={user} />
-        <div className="flex size-full flex-col">
-          <div className="root-layout">
-            <Image src="/icons/logo.svg" width ={30} height={30} alt="logo" />
-            <div>
-              <MobileNav user={user}/>
-            </div>
-          </div>
-          {children}
+      {/* SidebarWrapper là Client Component */}
+      <SidebarWrapper user={user} />
+      <div className="flex size-full flex-col">
+        <div className="root-layout">
+          <Image src="/icons/logo.svg" width={30} height={30} alt="logo" />
+          {/* MobileNavWrapper là Client Component */}
+          <MobileNavWrapper user={user} />
         </div>
+        {children}
+      </div>
     </main>
   );
 }

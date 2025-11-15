@@ -29,8 +29,6 @@ declare type User = {
   $id: string;
   email: string;
   userId: string;
-  dwollaCustomerUrl: string;
-  dwollaCustomerId: string;
   firstName: string;
   lastName: string;
   name: string;
@@ -87,7 +85,6 @@ declare type Bank = {
   accountId: string;
   bankId: string;
   accessToken: string;
-  fundingSourceUrl: string;
   userId: string;
   sharableId: string;
 };
@@ -110,31 +107,6 @@ declare type CategoryCount = {
 declare type Receiver = {
   firstName: string;
   lastName: string;
-};
-
-declare type TransferParams = {
-  sourceFundingSourceUrl: string;
-  destinationFundingSourceUrl: string;
-  amount: string;
-};
-
-declare type AddFundingSourceParams = {
-  dwollaCustomerId: string;
-  processorToken: string;
-  bankName: string;
-};
-
-declare type NewDwollaCustomerParams = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  type: string;
-  address1: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  dateOfBirth: string;
-  ssn: string;
 };
 
 declare interface CreditCardProps {
@@ -176,7 +148,6 @@ declare interface PaginationProps {
 declare interface PlaidLinkProps {
   user: User;
   variant?: "primary" | "ghost";
-  dwollaCustomerId?: string;
 }
 
 // declare type User = sdk.Models.Document & {
@@ -273,13 +244,6 @@ declare interface getTransactionsProps {
   accessToken: string;
 }
 
-declare interface CreateFundingSourceOptions {
-  customerId: string; // Dwolla Customer ID
-  fundingSourceName: string; // Dwolla Funding Source Name
-  plaidToken: string; // Plaid Account Processor Token
-  _links: object; // Dwolla On Demand Authorization Link
-}
-
 declare interface CreateTransactionProps {
   name: string;
   amount: string;
@@ -313,7 +277,6 @@ declare interface createBankAccountProps {
   userId: string;
   accountId: string;
   bankId: string;
-  fundingSourceUrl: string;
   sharableId: string;
 }
 

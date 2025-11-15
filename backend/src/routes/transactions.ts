@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import Sentry from '../sentry';
 
 const router = Router();
 
@@ -38,7 +39,7 @@ router.post('/create', authMiddleware, async (req: AuthRequest, res) => {
 
     if (senderBalance < amount) return res.status(400).json({ error: 'Insufficient funds' });
 
-    // perform atomic updates and create transaction
+    // Logic chuyển tiền
     const result = await prisma.$transaction(async (tx) => {
       const updatedSender = await tx.bank.update({ where: { id: senderBankId }, data: { balance: senderBalance - amount } });
       const updatedReceiver = await tx.bank.update({ where: { id: receiverBankId }, data: { balance: receiverBalance + amount } });
@@ -58,6 +59,7 @@ router.post('/create', authMiddleware, async (req: AuthRequest, res) => {
 
     return res.json({ transaction: result.createdTx, sender: result.updatedSender, receiver: result.updatedReceiver });
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error(err);
     return res.status(500).json({ error: err.message || 'create transaction error' });
   }

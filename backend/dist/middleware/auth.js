@@ -12,19 +12,33 @@ async function authMiddleware(req, res, next) {
     var _a;
     try {
         const token = ((_a = req.cookies) === null || _a === void 0 ? void 0 : _a.token) || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-        if (!token)
-            return res.status(401).json({ error: 'Unauthorized' });
-        const payload = jsonwebtoken_1.default.verify(token, JWT_SECRET);
-        if (!payload || !payload.userId)
-            return res.status(401).json({ error: 'Unauthorized' });
-        const user = await prisma_1.default.user.findUnique({ where: { id: payload.userId }, select: { id: true, email: true, firstName: true, lastName: true, dwollaCustomerId: true, dwollaCustomerUrl: true } });
-        if (!user)
-            return res.status(401).json({ error: 'Unauthorized' });
+        if (!token) {
+            req.user = null;
+            return next();
+        }
+        let payload;
+        try {
+            payload = jsonwebtoken_1.default.verify(token, JWT_SECRET);
+        }
+        catch (err) {
+            req.user = null;
+            return next();
+        }
+        if (!payload || !payload.userId) {
+            req.user = null;
+            return next();
+        }
+        const user = await prisma_1.default.user.findUnique({ where: { id: payload.userId }, select: { id: true, email: true, firstName: true, lastName: true } });
+        if (!user) {
+            req.user = null;
+            return next();
+        }
         req.user = user;
         next();
     }
     catch (err) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        req.user = null;
+        next();
     }
 }
 function signToken(userId) {
