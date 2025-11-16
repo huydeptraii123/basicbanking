@@ -22,6 +22,7 @@
     "jsonwebtoken": "^9.0.0",
     "lowdb": "^6.0.1",
     "plaid": "^23.0.0",
+    "systeminformation": "^5.27.11",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

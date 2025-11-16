@@ -7,6 +7,7 @@ import authRoute from './routes/auth';
 import userRoute from './routes/user';
 import banksRoute from './routes/banks';
 import transactionsRoute from './routes/transactions';
+import toolsRoute from './routes/tools';
 import Sentry from './sentry';
 
 dotenv.config();
@@ -24,6 +25,7 @@ app.use('/api/auth', authRoute);
 app.use('/api/user', userRoute);
 app.use('/api/banks', banksRoute);
 app.use('/api/transactions', transactionsRoute);
+app.use('/api/tools', toolsRoute);
 
 if (typeof Sentry.setupExpressErrorHandler === 'function') {
   Sentry.setupExpressErrorHandler(app);

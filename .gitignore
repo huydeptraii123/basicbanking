@@ -45,4 +45,4 @@ next-env.d.ts
 # Sentry Config File
 .env.sentry-build-plugin
 
-.env
+.envbackend/node_modules  (n?u chua c¢)

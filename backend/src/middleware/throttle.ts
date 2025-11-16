@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { getThrottleConfig } from '../state/throttleConfig';
 
 type QueueEntry = {
   req: Request;
@@ -15,27 +16,12 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>();
 
-const toInt = (value: string | undefined, fallback: number) => {
-  const parsed = Number.parseInt(value ?? '', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
-
-const toBool = (value: string | undefined, fallback: boolean) => {
-  if (value === undefined) return fallback;
-  return ['1', 'true', 'on', 'yes'].includes(value.toLowerCase());
-};
-
 const getKey = (req: Request) => {
   const forwarded = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim();
   return forwarded || req.ip || req.socket.remoteAddress || 'global';
 };
 
-const getConfig = () => ({
-  enabled: toBool(process.env.SIGNIN_THROTTLE_ENABLED, false),
-  maxConcurrent: toInt(process.env.SIGNIN_THROTTLE_MAX_CONCURRENT, 400),
-  maxQueue: toInt(process.env.SIGNIN_THROTTLE_QUEUE_MAX, 800),
-  maxWaitMs: toInt(process.env.SIGNIN_THROTTLE_MAX_WAIT_MS, 50000),
-});
+const getConfig = () => getThrottleConfig();
 
 const getBucket = (key: string): Bucket => {
   const existing = buckets.get(key);
@@ -96,7 +82,7 @@ export const signinThrottle = (req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
-  if (bucket.queue.length >= config.maxQueue) {
+  if (bucket.queue.length >= config.queueMax) {
     return res.status(429).json({ error: 'Sign-in queue is full, please try again shortly.' });
   }
 
@@ -114,4 +100,4 @@ export const signinThrottle = (req: Request, res: Response, next: NextFunction) 
   };
 
   bucket.queue.push(entry);
-};
+};
