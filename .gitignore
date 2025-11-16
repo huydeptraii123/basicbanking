@@ -45,4 +45,5 @@ next-env.d.ts
 # Sentry Config File
 .env.sentry-build-plugin
 
-.envbackend/node_modules  (n?u chua c¢)
+# backend workspace modules
+backend/node_modules/
