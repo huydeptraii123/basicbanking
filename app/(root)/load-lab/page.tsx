@@ -342,8 +342,8 @@ export default function LoadLabPage() {
             <MetricCard label="Request Success (%)" value={formatNumber((results.current.derivedMetrics.httpFailureRate ?? results.current.derivedMetrics.errorRate) * 100)} />
             <MetricCard label="Request Error (%)" value={formatNumber((results.current.derivedMetrics.checkFailureRate ?? results.current.derivedMetrics.errorRate) * 100)} />
             <MetricCard label="P95 latency (ms)" value={formatNumber(results.current.derivedMetrics.latencyP95 ?? null)} />
-            <MetricCard label="CPU after (%)" value={formatNumber(results.current.systemAfter.cpuLoad)} />
-            <MetricCard label="Memory after (%)" value={formatNumber(results.current.systemAfter.memory.usedPercent)} />
+            <MetricCard label="CPU (%)" value={formatNumber(results.current.systemAfter.cpuLoad)} />
+            <MetricCard label="Memory (%)" value={formatNumber(results.current.systemAfter.memory.usedPercent)} />
             <MetricCard label="Network (MB/s)" value={formatNumber(results.current.derivedMetrics.networkMbps ?? null)} />
           </div>
           <p className="mt-4 text-sm text-slate-500">
