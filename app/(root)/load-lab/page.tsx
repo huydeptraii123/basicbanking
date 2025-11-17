@@ -200,9 +200,9 @@ export default function LoadLabPage() {
 
     return [
       { label: 'Throughput (req/s)', current: currentRow.throughput, previous: previousRow.throughput, decimals: 0 },
-      { label: 'HTTP error %', current: currentRow.httpError, previous: previousRow.httpError, decimals: 2 },
-      { label: 'Check error %', current: currentRow.checkError, previous: previousRow.checkError, decimals: 2 },
-      { label: 'P95 Latency (ms)', current: currentRow.latency, previous: previousRow.latency, decimals: 1 },
+      { label: 'Request success %', current: currentRow.httpError, previous: previousRow.httpError, decimals: 2 },
+      { label: 'Request error %', current: currentRow.checkError, previous: previousRow.checkError, decimals: 2 },
+      { label: 'Latency (ms)', current: currentRow.latency, previous: previousRow.latency, decimals: 1 },
       { label: 'CPU %', current: currentRow.cpu, previous: previousRow.cpu, decimals: 1 },
       { label: 'Memory %', current: currentRow.memory, previous: previousRow.memory, decimals: 1 },
       { label: 'Network (Mb/s)', current: currentRow.network, previous: previousRow.network, decimals: 2 },
