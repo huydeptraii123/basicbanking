@@ -7,6 +7,7 @@ set LOAD_TEST_EMAIL=1@gmail.com
 set LOAD_TEST_PASSWORD=123456
 set LOAD_TEST_BASE_URL=http://localhost:4000
 
+cd d:\bank\backend
 set USER_EMAIL=1@gmail.com
 set USER_PASSWORD=123456
 set BASE_URL=http://host.docker.internal:4000
@@ -19,6 +20,10 @@ docker run --rm ^
   curl -i -X POST http://localhost:4000/api/auth/signin ^
   -H "Content-Type: application/json" ^
   -d "{\"email\":\"1@gmail.com\",\"password\":\"123456\"}"
+
+  curl -i -X POST http://host.docker.internal:4000 ^
+More?   -H "Content-Type: application/json" ^
+More?   -d "{\"email\":\"1@gmail.com\",\"password\":\"123456\"}"
 
   FE:
   set NEXT_PUBLIC_BACKEND_URL=http://localhost:4000

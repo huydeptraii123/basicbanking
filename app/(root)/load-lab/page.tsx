@@ -14,6 +14,10 @@ import { Bar } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+const localRunnerBaseUrl = process.env.NEXT_PUBLIC_LOAD_TEST_BASE_URL || 'http://localhost:4000';
+const dockerRunnerBaseUrl = process.env.NEXT_PUBLIC_DOCKER_LOAD_TEST_BASE_URL || 'http://host.docker.internal:4000';
+const defaultUserEmail = process.env.NEXT_PUBLIC_LOAD_TEST_EMAIL || '';
+const defaultUserPassword = process.env.NEXT_PUBLIC_LOAD_TEST_PASSWORD || '';
 
 type MetricSnapshot = {
   timestamp: string;
@@ -67,7 +71,9 @@ const defaultForm = {
   requestCount: 2000,
   durationSeconds: 3,
   mode: 'local' as 'local' | 'docker',
-  baseUrl: process.env.NEXT_PUBLIC_LOAD_TEST_BASE_URL || 'http://localhost:4000',
+  baseUrl: localRunnerBaseUrl,
+  userEmail: defaultUserEmail,
+  userPassword: defaultUserPassword,
 };
 
 const formatNumber = (value: number | null | undefined, fraction = 2) => {
@@ -77,6 +83,7 @@ const formatNumber = (value: number | null | undefined, fraction = 2) => {
 
 export default function LoadLabPage() {
   const [form, setForm] = useState(defaultForm);
+  const [baseUrlEdited, setBaseUrlEdited] = useState(false);
   const [results, setResults] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,11 +112,23 @@ export default function LoadLabPage() {
     } else {
       value = event.target.value;
     }
+    if (field === 'baseUrl') {
+      setBaseUrlEdited(true);
+    }
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleModeChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, mode: event.target.value as 'local' | 'docker' }));
+    const newMode = event.target.value as 'local' | 'docker';
+    setForm((prev) => {
+      const untouchedBaseUrl = !baseUrlEdited
+        || prev.baseUrl === localRunnerBaseUrl
+        || prev.baseUrl === dockerRunnerBaseUrl;
+      const nextBaseUrl = untouchedBaseUrl
+        ? (newMode === 'docker' ? dockerRunnerBaseUrl : localRunnerBaseUrl)
+        : prev.baseUrl;
+      return { ...prev, mode: newMode, baseUrl: nextBaseUrl };
+    });
   };
 
   const startTest = async () => {
@@ -119,20 +138,26 @@ export default function LoadLabPage() {
       const res = await fetch(`${backendUrl}/api/tools/load-test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          throttle: {
-            enabled: form.enabled,
-            maxConcurrent: form.maxConcurrent,
-            queueMax: form.queueMax,
-            maxWaitMs: form.maxWaitMs,
-          },
-          load: {
-            requestCount: form.requestCount,
-            durationSeconds: form.durationSeconds,
-          },
-          mode: form.mode,
-          target: form.baseUrl ? { baseUrl: form.baseUrl } : undefined,
-        }),
+          body: JSON.stringify({
+            throttle: {
+              enabled: form.enabled,
+              maxConcurrent: form.maxConcurrent,
+              queueMax: form.queueMax,
+              maxWaitMs: form.maxWaitMs,
+            },
+            load: {
+              requestCount: form.requestCount,
+              durationSeconds: form.durationSeconds,
+            },
+            mode: form.mode,
+            target: (() => {
+              const overrides: { baseUrl?: string; userEmail?: string; userPassword?: string } = {};
+              if (form.baseUrl) overrides.baseUrl = form.baseUrl;
+              if (form.userEmail) overrides.userEmail = form.userEmail;
+              if (form.userPassword) overrides.userPassword = form.userPassword;
+              return Object.keys(overrides).length ? overrides : undefined;
+            })(),
+          }),
       });
 
       if (!res.ok) {
@@ -155,6 +180,8 @@ export default function LoadLabPage() {
     const currentRow = {
       throughput: results.current.derivedMetrics.throughputRps,
       errorRate: results.current.derivedMetrics.errorRate * 100,
+      httpError: (results.current.derivedMetrics.httpFailureRate ?? results.current.derivedMetrics.errorRate ?? 0) * 100,
+      checkError: (results.current.derivedMetrics.checkFailureRate ?? results.current.derivedMetrics.errorRate ?? 0) * 100,
       latency: results.current.derivedMetrics.latencyP95 ?? null,
       cpu: results.current.systemAfter.cpuLoad,
       memory: results.current.systemAfter.memory.usedPercent,
@@ -163,6 +190,8 @@ export default function LoadLabPage() {
     const previousRow = {
       throughput: results.previous.derivedMetrics.throughputRps,
       errorRate: results.previous.derivedMetrics.errorRate * 100,
+      httpError: (results.previous.derivedMetrics.httpFailureRate ?? results.previous.derivedMetrics.errorRate ?? 0) * 100,
+      checkError: (results.previous.derivedMetrics.checkFailureRate ?? results.previous.derivedMetrics.errorRate ?? 0) * 100,
       latency: results.previous.derivedMetrics.latencyP95 ?? null,
       cpu: results.previous.systemAfter.cpuLoad,
       memory: results.previous.systemAfter.memory.usedPercent,
@@ -171,7 +200,8 @@ export default function LoadLabPage() {
 
     return [
       { label: 'Throughput (req/s)', current: currentRow.throughput, previous: previousRow.throughput, decimals: 0 },
-      { label: 'Error %', current: currentRow.errorRate, previous: previousRow.errorRate, decimals: 2 },
+      { label: 'HTTP error %', current: currentRow.httpError, previous: previousRow.httpError, decimals: 2 },
+      { label: 'Check error %', current: currentRow.checkError, previous: previousRow.checkError, decimals: 2 },
       { label: 'P95 Latency (ms)', current: currentRow.latency, previous: previousRow.latency, decimals: 1 },
       { label: 'CPU %', current: currentRow.cpu, previous: previousRow.cpu, decimals: 1 },
       { label: 'Memory %', current: currentRow.memory, previous: previousRow.memory, decimals: 1 },
@@ -268,14 +298,37 @@ export default function LoadLabPage() {
               placeholder="http://localhost:4000"
             />
           </label>
+          <label className="flex flex-col text-sm">
+            <span className="mb-1 font-medium">User email (k6 login)</span>
+            <input
+              type="email"
+              value={form.userEmail}
+              onChange={handleChange('userEmail')}
+              className="rounded-md border px-3 py-2"
+              placeholder="1@gmail.com"
+            />
+          </label>
+          <label className="flex flex-col text-sm">
+            <span className="mb-1 font-medium">User password</span>
+            <input
+              type="password"
+              value={form.userPassword}
+              onChange={handleChange('userPassword')}
+              className="rounded-md border px-3 py-2"
+              placeholder="••••••"
+            />
+          </label>
         </div>
 
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
+        <p className="mt-4 text-xs text-slate-500">
+          Điền email/password giống như bạn dùng khi đăng nhập, nếu bỏ trống hệ thống sẽ dùng giá trị mặc định của backend.
+        </p>
         <button
           onClick={startTest}
           disabled={loading}
-          className="mt-6 inline-flex items-center rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow disabled:opacity-50"
+          className="mt-4 inline-flex items-center rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow disabled:opacity-50"
         >
           {loading ? 'Running…' : 'Start test'}
         </button>
@@ -286,7 +339,8 @@ export default function LoadLabPage() {
           <h2 className="text-xl font-semibold mb-4">Current result</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard label="Throughput (req/s)" value={formatNumber(results.current.derivedMetrics.throughputRps)} />
-            <MetricCard label="Error rate (%)" value={formatNumber(results.current.derivedMetrics.errorRate * 100)} />
+            <MetricCard label="Request Success (%)" value={formatNumber((results.current.derivedMetrics.httpFailureRate ?? results.current.derivedMetrics.errorRate) * 100)} />
+            <MetricCard label="Request Error (%)" value={formatNumber((results.current.derivedMetrics.checkFailureRate ?? results.current.derivedMetrics.errorRate) * 100)} />
             <MetricCard label="P95 latency (ms)" value={formatNumber(results.current.derivedMetrics.latencyP95 ?? null)} />
             <MetricCard label="CPU after (%)" value={formatNumber(results.current.systemAfter.cpuLoad)} />
             <MetricCard label="Memory after (%)" value={formatNumber(results.current.systemAfter.memory.usedPercent)} />
