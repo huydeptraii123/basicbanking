@@ -17,6 +17,8 @@ model User {
   password          String
   firstName         String?
   lastName          String?
+  twoFactorSecret   String?
+  twoFactorEnabled  Boolean  @default(false)
   createdAt         DateTime @default(now())
   banks             Bank[]
 }

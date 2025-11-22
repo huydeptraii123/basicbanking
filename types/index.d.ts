@@ -38,6 +38,8 @@ declare type User = {
   postalCode: string;
   dateOfBirth: string;
   ssn: string;
+  twoFactorEnabled?: boolean;
+  twoFactorSecret?: string | null;
 };
 
 declare type NewUserParams = {

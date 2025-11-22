@@ -22,7 +22,14 @@ router.post('/signin', signinThrottle, async (req, res) => {
     const token = signToken(user.id);
     res.cookie('token', token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', path: '/' });
 
-    return res.json({ ok: true, token });
+    // Kiểm tra nếu user đã bật 2FA
+    const require2FA = user.twoFactorEnabled && user.twoFactorSecret;
+
+    return res.json({ 
+      ok: true, 
+      token,
+      require2FA // Trả về flag để frontend biết cần verify 2FA
+    });
   } catch (err: any) {
     Sentry.captureException(err);
     console.error(err);

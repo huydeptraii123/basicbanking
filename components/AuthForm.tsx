@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { userAgent } from 'next/server'
 import React, { useState } from 'react'
+import TwoFactorVerify from './TwoFactorVerify'
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -34,6 +35,7 @@ const AuthForm = ({ type }: {type: string}) => {
     const router = useRouter();
   const [user, setUser] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [showTwoFactorVerify, setShowTwoFactorVerify] = useState(false);
 
     const formSchema = authFormSchema(type);
 
@@ -103,8 +105,14 @@ const AuthForm = ({ type }: {type: string}) => {
             if (res.ok) {
               console.log('signin response', json);
               if (json.token) localStorage.setItem('token', json.token);
-              alert('Đăng nhập thành công');
-              router.push('/')
+              
+              // Kiểm tra nếu cần verify 2FA
+              if (json.require2FA) {
+                setShowTwoFactorVerify(true);
+              } else {
+                alert('Đăng nhập thành công');
+                router.push('/')
+              }
             } else {
               console.error('Signin failed', json);
               alert('Đăng nhập thất bại: ' + (json.error || JSON.stringify(json)));
@@ -208,6 +216,21 @@ const AuthForm = ({ type }: {type: string}) => {
         </>
       )
       }
+
+      {/* Modal để verify 2FA */}
+      {showTwoFactorVerify && (
+        <TwoFactorVerify 
+          onSuccess={() => {
+            setShowTwoFactorVerify(false);
+            alert('Xác thực 2FA thành công');
+            router.push('/');
+          }}
+          onCancel={() => {
+            setShowTwoFactorVerify(false);
+            alert('Đã hủy xác thực 2FA');
+          }}
+        />
+      )}
   </section>
   )
 }
