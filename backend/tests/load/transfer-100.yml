@@ -1,0 +1,43 @@
+config:
+  target: "http://localhost:4000"
+  phases:
+    # Test 100 transfers trong 10 giây
+    - duration: 10
+      arrivalRate: 10
+      name: "100 transfers in 10 seconds"
+  processor: "./processor.js"
+  variables:
+    # Các biến này sẽ được set trong processor
+    authToken: ""
+    senderBankId: ""
+    receiverBankId: ""
+
+scenarios:
+  - name: "Transfer between 2 bank accounts"
+    flow:
+      # Lấy auth token và bank IDs từ processor
+      - function: "setAuthData"
+      
+      # Thực hiện transfer
+      - post:
+          url: "/api/transactions/create"
+          headers:
+            Content-Type: "application/json"
+            Cookie: "{{ authToken }}"
+          json:
+            senderBankId: "{{ senderBankId }}"
+            receiverBankId: "{{ receiverBankId }}"
+            amount: "{{ $randomNumber(10, 100) }}"
+            name: "Load Test Transfer"
+            channel: "online"
+            category: "Transfer"
+          capture:
+            - json: "$.transaction.id"
+              as: "transactionId"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: transaction
+      
+      # Log kết quả
+      - log: "Transfer completed: {{ transactionId }}"
