@@ -8,11 +8,14 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:seed": "node prisma/seed.js",
     "test": "jest --runInBand",
-    "load-test:prepare": "ts-node tests/load/prepare-test-data.ts",
-    "load-test:100": "artillery run tests/load/transfer-100.yml",
-    "load-test:1000": "artillery run tests/load/transfer-1000.yml",
-    "load-test:quick": "artillery quick --count 50 --num 100 http://localhost:4000/api/transactions/create",
-    "load-test:results": "ts-node tests/load/view-test-results.ts"
+    "load-test:prepare": "ts-node tests/load/transfer/prepare-test-data.ts --",
+    "load-test:100": "artillery run tests/load/transfer/transfer-100.yml",
+    "load-test:1000": "artillery run tests/load/transfer/transfer-1000.yml",
+    "load-test:results": "ts-node tests/load/transfer/view-test-results.ts",
+    "load-test:signin:prepare": "ts-node tests/load/sign-in/prepare-test-data.ts",
+    "load-test:signin:100": "artillery run tests/load/sign-in/signin-100.yml",
+    "load-test:signin:1000": "artillery run tests/load/sign-in/signin-1000.yml",
+    "load-test:signin:results": "ts-node tests/load/sign-in/view-results.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.8.0",

@@ -10,7 +10,7 @@
  */
 
 import dotenv from 'dotenv';
-import prisma from '../../src/prisma';
+import prisma from '../../../src/prisma';
 import bcrypt from 'bcrypt';
 import fs from 'fs';
 import path from 'path';
@@ -25,8 +25,9 @@ interface TestData {
   email: string;
 }
 
-async function prepareTestData() {
+async function prepareTestData(numberOfTransactions: number = 100) {
   console.log('🚀 Starting test data preparation...\n');
+  console.log(`📊 Preparing for ${numberOfTransactions} transactions\n`);
 
   try {
     // 1. Tạo hoặc tìm test user
@@ -56,7 +57,11 @@ async function prepareTestData() {
     // 2. Tạo hoặc update 2 bank accounts với balance lớn
     console.log('\n💰 Setting up bank accounts...');
     
-    const initialBalance = 100000000; // 100 triệu VND
+    // Tính toán balance cần thiết: average 50 VND * số transactions * safety margin 2x
+    const averageTransferAmount = 50;
+    const calculatedBalance = numberOfTransactions * averageTransferAmount * 2;
+    const minBalance = 100000000; // Tối thiểu 100 triệu VND
+    const initialBalance = Math.max(calculatedBalance, minBalance);
     
     // Xóa các bank accounts cũ của user này
     await prisma.bank.deleteMany({
@@ -119,12 +124,20 @@ async function prepareTestData() {
     console.log('Bank 1 ID:', bank1.id);
     console.log('Bank 2 ID:', bank2.id);
     console.log('Initial Balance:', initialBalance.toLocaleString(), 'VND');
+    console.log('Prepared for:', numberOfTransactions, 'transactions');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     console.log('\n🎯 Ready for load testing!');
-    console.log('\nRun load tests:');
-    console.log('  npm run load-test:100   (100 transfers in 10 seconds)');
-    console.log('  npm run load-test:1000  (1000 transfers in 60 seconds)');
+    console.log('\n💡 Suggestions:');
+    if (numberOfTransactions <= 100) {
+      console.log('  npm run load-test:100   (100 transfers in 10 seconds)');
+    } else if (numberOfTransactions <= 1000) {
+      console.log('  npm run load-test:1000  (1000 transfers in 60 seconds)');
+    } else {
+      console.log('  npm run load-test:1000  (1000 transfers in 60 seconds)');
+      console.log(`  ⚠️  Note: Prepared for ${numberOfTransactions} but test only runs 1000`);
+      console.log('  💡 Customize .yml files for higher loads');
+    }
 
   } catch (error) {
     console.error('❌ Error preparing test data:', error);
@@ -135,7 +148,10 @@ async function prepareTestData() {
 }
 
 // Run the script
-prepareTestData()
+// Tìm số trong arguments (bỏ qua "--")
+const args = process.argv.slice(2).filter(arg => arg !== '--');
+const numberOfTransactions = parseInt(args[0]) || 100;
+prepareTestData(numberOfTransactions)
   .then(() => {
     console.log('\n✅ Done!');
     process.exit(0);

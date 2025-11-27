@@ -6,7 +6,7 @@
  */
 
 import dotenv from 'dotenv';
-import prisma from '../../src/prisma';
+import prisma from '../../../src/prisma';
 import fs from 'fs';
 import path from 'path';
 
