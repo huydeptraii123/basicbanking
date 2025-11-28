@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { transferThrottleMiddleware } from '../middleware/transferThrottle';
 import Sentry from '../sentry';
 
 const router = Router();
@@ -8,9 +9,10 @@ const router = Router();
 // POST /api/transactions/create
 // This endpoint now performs the transfer server-side:
 // - requires auth
+// - throttle middleware (optional, controlled by config)
 // - validates sender ownership and sufficient funds
 // - atomically debits sender, credits receiver, and creates a transaction record
-router.post('/create', authMiddleware, async (req: AuthRequest, res) => {
+router.post('/create', authMiddleware, transferThrottleMiddleware, async (req: AuthRequest, res) => {
   try {
     const payload = req.body as any;
     const amount = Number(payload.amount);

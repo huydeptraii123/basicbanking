@@ -8,6 +8,7 @@ import userRoute from './routes/user';
 import banksRoute from './routes/banks';
 import transactionsRoute from './routes/transactions';
 import toolsRoute from './routes/tools';
+import transferThrottleRoute from './routes/transfer-throttle';
 import Sentry from './sentry';
 
 dotenv.config();
@@ -26,6 +27,7 @@ app.use('/api/user', userRoute);
 app.use('/api/banks', banksRoute);
 app.use('/api/transactions', transactionsRoute);
 app.use('/api/tools', toolsRoute);
+app.use('/api/transfer-throttle', transferThrottleRoute);
 
 if (typeof Sentry.setupExpressErrorHandler === 'function') {
   Sentry.setupExpressErrorHandler(app);
