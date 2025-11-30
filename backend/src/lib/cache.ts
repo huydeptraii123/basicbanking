@@ -1,11 +1,8 @@
-// src/lib/cache.ts
-// PHIÊN BẢN KHÔNG CẦN CÀI REDIS (Dùng biến cục bộ để giả lập)
 
-// Biến lưu trữ tạm thời trong RAM (Mất khi restart server)
 const memoryCache = new Map<string, { value: string, expiry: number }>();
 
 export const cacheService = {
-  // Giả lập lệnh GET
+
   async getBalance(bankId: string): Promise<string | null> {
     const key = `bank:balance:${bankId}`;
     const item = memoryCache.get(key);
@@ -19,7 +16,6 @@ export const cacheService = {
     return item.value;
   },
 
-  // Giả lập lệnh SET
   async setBalance(bankId: string, balance: number | string): Promise<void> {
     const key = `bank:balance:${bankId}`;
     // Lưu trong 5 phút (300000 ms)
@@ -29,13 +25,11 @@ export const cacheService = {
     });
   },
 
-  // Giả lập lệnh DEL
   async invalidateBalance(bankId: string): Promise<void> {
     const key = `bank:balance:${bankId}`;
     memoryCache.delete(key);
   },
 
-  // Giả lập Idempotency (Chống lặp)
   async checkIdempotency(key: string): Promise<boolean> {
     const redisKey = `tx:idempotency:${key}`;
     const item = memoryCache.get(redisKey);
@@ -57,5 +51,4 @@ export const cacheService = {
   }
 };
 
-// Export một object giả để các file khác import không bị lỗi type
 export default {};

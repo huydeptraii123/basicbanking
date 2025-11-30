@@ -29,7 +29,7 @@ model Bank {
   bankId      String?
   accountId   String?  @unique
   
-  balance     Float?   @default(0.0) // Giữ nguyên Float như bạn muốn
+  balance     Float?   @default(0.0) 
   version     Int      @default(0)   // Thêm: Dùng để tracking số lần thay đổi (Optimistic locking basic)
   
   accessToken String?
@@ -48,7 +48,7 @@ model Bank {
 model Transaction {
   id             String   @id @default(uuid())
   name           String?
-  amount         Float?   // Giữ nguyên Float
+  amount         Float?   
   senderBankId   String?
   receiverBankId String?
   channel        String?

@@ -19,7 +19,7 @@ const TransferSchema = z.object({
   idempotencyKey: z.string().min(10).optional(),
 });
 
-// --- 2. API Tạo Giao Dịch (POST) ---
+
 router.post('/create', authMiddleware, async (req: AuthRequest, res) => {
   try {
     // A. Validation Input
@@ -96,10 +96,6 @@ router.post('/create', authMiddleware, async (req: AuthRequest, res) => {
         return { transaction, updatedSender, updatedReceiver };
       }, 
       { 
-        // --- SỬA LỖI TẠI ĐÂY ---
-        // Với SQLite, chỉ hỗ trợ Serializable.
-        // Serializable là mức cô lập cao nhất: Transaction này chạy xong mới đến cái khác.
-        // Rất an toàn nhưng chậm hơn RepeatableRead (tuy nhiên với SQLite thì không khác biệt nhiều).
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable, 
         timeout: 10000 
       });
