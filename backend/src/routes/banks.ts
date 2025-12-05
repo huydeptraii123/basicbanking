@@ -99,35 +99,35 @@ router.get('/by-account/:accountId', async (req, res) => {
         console.log('Step 2 - base64 decoded (raw):', JSON.stringify(decoded));
         if (/^[\x20-\x7E]+$/.test(decoded)) {
           lookupKey = decoded.trim();
-          console.log('✅ Step 2 - using decoded base64 as lookupKey:', JSON.stringify(lookupKey));
+          console.log(' Step 2 - using decoded base64 as lookupKey:', JSON.stringify(lookupKey));
         } else {
-          console.log('⚠️ Step 2 - decoded contained non-printable chars, skipping use.');
+          console.log(' Step 2 - decoded contained non-printable chars, skipping use.');
         }
       } catch (e: any) {
-        console.warn('⚠️ Base64 decode failed:', e?.message || e);
+        console.warn(' Base64 decode failed:', e?.message || e);
       }
     }
 
     // --- Sanitize fallbacks ---
     if (!/^[\x20-\x7E]+$/.test(lookupKey)) {
-      console.warn('⚠️ Step 3 - invalid printable lookupKey, trying fallback:', JSON.stringify(lookupKey));
+      console.warn('Step 3 - invalid printable lookupKey, trying fallback:', JSON.stringify(lookupKey));
       const digits = String(rawAccountId).replace(/\D+/g, '');
       if (digits && digits.length >= 3) {
         lookupKey = digits;
-        console.log('✅ Step 3a - digits-only fallback used:', lookupKey);
+        console.log('Step 3a - digits-only fallback used:', lookupKey);
       } else {
         const asciiOnly = String(rawAccountId).replace(/[^\x20-\x7E]/g, '').trim();
         if (asciiOnly && asciiOnly.length >= 1) {
           lookupKey = asciiOnly;
-          console.log('✅ Step 3b - ascii-stripped fallback used:', JSON.stringify(lookupKey));
+          console.log('Step 3b - ascii-stripped fallback used:', JSON.stringify(lookupKey));
         } else {
-          console.warn('❌ Step 3 - all sanitize fallbacks failed. rawAccountId:', rawAccountId);
+          console.warn(' Step 3 - all sanitize fallbacks failed. rawAccountId:', rawAccountId);
           return res.status(400).json({ error: 'invalid account id' });
         }
       }
     }
 
-    console.log('✅ Final lookupKey for Prisma query:', JSON.stringify(lookupKey));
+    console.log(' Final lookupKey for Prisma query:', JSON.stringify(lookupKey));
 
     // --- Prisma lookup ---
     console.log('Step 4 - querying Prisma...');
@@ -149,11 +149,11 @@ router.get('/by-account/:accountId', async (req, res) => {
     }
 
     if (!bank) {
-      console.log('❌ Step 5 - no bank found for lookupKey:', JSON.stringify(lookupKey));
+      console.log(' Step 5 - no bank found for lookupKey:', JSON.stringify(lookupKey));
       return res.status(404).json({ error: 'bank not found' });
     }
 
-    console.log('✅ Step 6 - Found bank:', bank);
+    console.log('Step 6 - Found bank:', bank);
     const mapped = { ...bank, sharableId: bank.accountId || bank.sharableId };
     return res.json(mapped);
 
@@ -170,11 +170,11 @@ router.get('/:id', async (req, res) => {
     const id = req.params.id;
     console.log('[DEBUG] Lookup started for ID:', id);
 
-    // 1️⃣ exact match
+    //  exact match
     let bank = await prisma.bank.findUnique({ where: { id } });
     console.log('[DEBUG] Step 1 - findUnique result:', bank);
 
-    // 2️⃣ fallback match (accountId or sharableId)
+    // fallback match (accountId or sharableId)
     if (!bank) {
       bank = await prisma.bank.findFirst({
         where: { OR: [{ accountId: id }, { sharableId: id }] },
@@ -182,7 +182,7 @@ router.get('/:id', async (req, res) => {
       console.log('[DEBUG] Step 2 - findFirst exact result:', bank);
     }
 
-    // 3️⃣ fuzzy match
+    // fuzzy match
     if (!bank) {
       bank = await prisma.bank.findFirst({
         where: {
@@ -195,13 +195,13 @@ router.get('/:id', async (req, res) => {
       console.log('[DEBUG] Step 3 - findFirst fuzzy result:', bank);
     }
 
-    // 4️⃣ final result
+    // final result
     if (!bank) {
       console.log('[DEBUG] No bank found after all attempts.');
       return res.status(404).json({ error: 'bank not found' });
     }
 
-    console.log('[DEBUG] ✅ Found bank:', bank);
+    console.log('[DEBUG] Found bank:', bank);
     const mapped = { ...bank, sharableId: bank.accountId || bank.sharableId };
     return res.json(mapped);
 

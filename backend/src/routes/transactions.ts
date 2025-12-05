@@ -1,77 +1,157 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client'; 
+import { z } from 'zod';
 import prisma from '../prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { cacheService } from '../lib/cache';
+import { safeRound } from '../utils/math';
+import { runTransactionWithRetry } from '../utils/retry';
 import { transferThrottleMiddleware } from '../middleware/transferThrottle';
 import Sentry from '../sentry';
 
 const router = Router();
 
-// POST /api/transactions/create
-// This endpoint now performs the transfer server-side:
-// - requires auth
-// - throttle middleware (optional, controlled by config)
-// - validates sender ownership and sufficient funds
-// - atomically debits sender, credits receiver, and creates a transaction record
-router.post('/create', authMiddleware, transferThrottleMiddleware, async (req: AuthRequest, res) => {
+// --- 1. Schema Validation ---
+const TransferSchema = z.object({
+  amount: z.number().gt(0, "Amount must be greater than 0"),
+  senderBankId: z.string().uuid(),
+  receiverBankId: z.string().uuid(),
+  name: z.string().optional(),
+  idempotencyKey: z.string().min(10).optional(),
+});
+
+
+router.post('/create', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const payload = req.body as any;
-    const amount = Number(payload.amount);
-    const senderBankId = payload.senderBankId;
-    const receiverBankId = payload.receiverBankId;
-
-    if (!senderBankId || !receiverBankId) return res.status(400).json({ error: 'Missing bank ids' });
-    if (!amount || isNaN(amount) || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
-
-    // fetch banks
-    const [senderBank, receiverBank] = await Promise.all([
-      prisma.bank.findUnique({ where: { id: senderBankId } }),
-      prisma.bank.findUnique({ where: { id: receiverBankId } }),
-    ]);
-
-    if (!senderBank) return res.status(404).json({ error: 'Sender bank not found' });
-    if (!receiverBank) return res.status(404).json({ error: 'Receiver bank not found' });
-
-    // ensure the authenticated user owns the sender bank
-    if (!req.user || senderBank.userId !== req.user.id) {
-      return res.status(403).json({ error: 'You do not own the source bank account' });
+    // A. Validation Input
+    const validation = TransferSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error.format() });
     }
 
-  const senderBalance = (senderBank as any).balance ?? 0;
-  const receiverBalance = (receiverBank as any).balance ?? 0;
+    const { amount, senderBankId, receiverBankId, name, idempotencyKey } = validation.data;
 
-    if (senderBalance < amount) return res.status(400).json({ error: 'Insufficient funds' });
+    if (senderBankId === receiverBankId) {
+      return res.status(400).json({ error: 'Cannot transfer to the same account' });
+    }
 
-    // Logic chuyển tiền
-    const result = await prisma.$transaction(async (tx) => {
-      const updatedSender = await tx.bank.update({ where: { id: senderBankId }, data: { balance: senderBalance - amount } });
-      const updatedReceiver = await tx.bank.update({ where: { id: receiverBankId }, data: { balance: receiverBalance + amount } });
+    // B. Check Idempotency (Layer 1: Cache Protection)
+    if (idempotencyKey) {
+      const isDuplicate = await cacheService.checkIdempotency(idempotencyKey);
+      if (isDuplicate) {
+        return res.status(409).json({ error: 'Transaction already processed', ref: idempotencyKey });
+      }
+    }
 
-      const createdTx = await tx.transaction.create({ data: {
-        name: payload.name || null,
-        amount,
-        senderBankId: senderBankId,
-        receiverBankId: receiverBankId,
-        channel: payload.channel || 'online',
-        category: payload.category || 'Transfer',
-        status: 'success'
-      }});
+    // C. Execute Transaction with Retry & Isolation (Layer 2: Database Protection)
+    const result = await runTransactionWithRetry(async () => {
+      
+      return await prisma.$transaction(async (tx) => {
+        // 1. Read Phase
+        const senderBank = await tx.bank.findUnique({ where: { id: senderBankId } });
+        
+        if (!senderBank) throw new Error('Sender bank not found');
+        if (senderBank.userId !== req.user.id) throw new Error('Unauthorized ownership');
 
-      return { createdTx, updatedSender, updatedReceiver };
+        const currentBalance = senderBank.balance || 0;
+        if (currentBalance < amount) {
+          throw new Error('Insufficient funds');
+        }
+
+        // 2. Write Phase (Atomic Updates)
+        const updatedSender = await tx.bank.update({
+          where: { id: senderBankId },
+          data: { 
+            balance: { decrement: amount },
+            version: { increment: 1 } 
+          },
+        });
+
+        // Double check sau khi trừ (Safety Net cho Float)
+        if ((updatedSender.balance || 0) < -0.0001) {
+          throw new Error('Insufficient funds (Race condition detected)');
+        }
+
+        // Cộng tiền người nhận
+        const updatedReceiver = await tx.bank.update({
+          where: { id: receiverBankId },
+          data: { 
+            balance: { increment: amount },
+            version: { increment: 1 }
+          },
+        });
+
+        // Lưu lịch sử giao dịch
+        const transaction = await tx.transaction.create({
+          data: {
+            amount: safeRound(amount),
+            senderBankId,
+            receiverBankId,
+            name: name || 'Transfer',
+            status: 'COMPLETED',
+            idempotencyKey,
+            channel: 'API'
+          },
+        });
+
+        return { transaction, updatedSender, updatedReceiver };
+      }, 
+      { 
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable, 
+        timeout: 10000 
+      });
+
     });
 
-    return res.json({ transaction: result.createdTx, sender: result.updatedSender, receiver: result.updatedReceiver });
+    // D. Post-Process (Layer 3: Cache Invalidation)
+    await Promise.all([
+      cacheService.invalidateBalance(senderBankId),
+      cacheService.invalidateBalance(receiverBankId)
+    ]);
+
+    if (idempotencyKey) {
+      await cacheService.setIdempotency(idempotencyKey, { txId: result.transaction.id });
+    }
+
+    return res.json({
+      success: true,
+      transaction: result.transaction,
+      senderNewBalance: safeRound(result.updatedSender.balance || 0),
+      receiverNewBalance: safeRound(result.updatedReceiver.balance || 0)
+    });
+
   } catch (err: any) {
+    if (err.message === 'Insufficient funds' || 
+        err.message === 'Unauthorized ownership' || 
+        err.message === 'Sender bank not found' ||
+        err.message.includes('Race condition detected')) {
+      return res.status(400).json({ error: err.message });
+    }
+
     Sentry.captureException(err);
-    console.error(err);
-    return res.status(500).json({ error: err.message || 'create transaction error' });
+    console.error('Transaction Error:', err);
+    return res.status(500).json({ error: 'Transaction processing failed' });
   }
 });
 
-// GET /api/transactions/by-bank/:bankId
+// --- 3. API Lấy Lịch Sử Giao Dịch (GET) ---
 router.get('/by-bank/:bankId', async (req, res) => {
   try {
     const bankId = req.params.bankId;
-    const docs = await prisma.transaction.findMany({ where: { OR: [{ senderBankId: bankId }, { receiverBankId: bankId }] } });
+    
+    const docs = await prisma.transaction.findMany({ 
+      where: { 
+        OR: [
+          { senderBankId: bankId }, 
+          { receiverBankId: bankId }
+        ] 
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        senderBank: { select: { bankId: true, accountId: true } },
+        receiverBank: { select: { bankId: true, accountId: true } }
+      }
+    });
 
     return res.json({ total: docs.length, documents: docs });
   } catch (err: any) {
