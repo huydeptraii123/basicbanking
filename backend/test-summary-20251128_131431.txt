@@ -1,0 +1,24 @@
+﻿Artillery Load Test Summary - 11/28/2025 13:14:31
+============================================
+
+REQUEST SUMMARY
+Total Requests: N/A
+Success (200): N/A (N/A%)
+Throttled (429): N/A
+Queue Full (503): N/A
+Server Error (500): N/A
+Timeout: N/A
+
+RESPONSE TIME (ms)
+Min: N/A
+Median: N/A
+P95: N/A
+P99: N/A
+Max: N/A
+
+VIRTUAL USERS
+Created: N/A
+Completed: N/A
+Failed: N/A (N/A%)
+
+HEALTH: Unknown

@@ -1,0 +1,43 @@
+config:
+  target: "http://localhost:4000"
+  phases:
+    # Ramp up: 10 -> 25 sign-ins/second
+    - duration: 30
+      arrivalRate: 10
+      rampTo: 25
+      name: "Ramp up: 10 to 25 sign-ins/second"
+    
+    # Sustained: 25 sign-ins/second
+    - duration: 30
+      arrivalRate: 25
+      name: "Sustained: 25 sign-ins/second"
+  
+  processor: "./processor.js"
+  variables:
+    email: ""
+    password: ""
+
+scenarios:
+  - name: "Sign-in stress test - 1000 requests"
+    flow:
+      # Random chọn user
+      - function: "setRandomUser"
+      
+      # Sign-in request
+      - post:
+          url: "/api/auth/signin"
+          headers:
+            Content-Type: "application/json"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+            - json: "$.ok"
+              as: "success"
+            - json: "$.require2FA"
+              as: "needs2FA"
+          expect:
+            - statusCode: 200
+            - contentType: json
