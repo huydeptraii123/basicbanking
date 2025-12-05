@@ -21,7 +21,7 @@ const TransferSchema = z.object({
 });
 
 
-router.post('/create', authMiddleware, async (req: AuthRequest, res) => {
+router.post('/create', authMiddleware, transferThrottleMiddleware , async (req: AuthRequest, res) => {
   try {
     // A. Validation Input
     const validation = TransferSchema.safeParse(req.body);
