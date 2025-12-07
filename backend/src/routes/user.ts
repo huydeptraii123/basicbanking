@@ -22,6 +22,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res) => {
     console.error(err);
     return res.status(500).json({ user: null });
   }
+
 });
 
 // GET /api/user/2fa/qrcode - Lấy QR code để setup 2FA

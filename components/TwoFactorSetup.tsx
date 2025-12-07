@@ -6,6 +6,7 @@ import { Input } from './ui/input'
 import { Label } from './ui/label'
 import HeaderBox from './HeaderBox'
 import Image from 'next/image'
+import { fetchWithRetry } from '@/lib/core-fetch'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
 
@@ -30,7 +31,7 @@ const TwoFactorSetup = ({ user }: TwoFactorSetupProps) => {
 
   const fetchUserStatus = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/user/me`, {
+      const res = await fetchWithRetry(`${BACKEND_URL}/api/user/me`, {
         credentials: 'include'
       })
       const data = await res.json()

@@ -1,5 +1,6 @@
 "use server";
 
+import { fetchWithRetry } from "../core-fetch";
 import { parseStringify } from "../utils";
 import { cookies } from "next/headers";
 
@@ -10,7 +11,7 @@ export const createTransaction = async (transaction: CreateTransactionProps) => 
     const cookieStore = cookies();
     const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-    const res = await fetch(`${base}/api/transactions/create`, {
+    const res = await fetchWithRetry(`${base}/api/transactions/create`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -39,7 +40,7 @@ export const getTransactionsByBankId = async ({bankId}: getTransactionsByBankIdP
     const cookieStore = cookies();
     const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-    const res = await fetch(`${base}/api/transactions/by-bank/${bankId}`, {
+    const res = await fetchWithRetry(`${base}/api/transactions/by-bank/${bankId}`, {
       headers: {
         cookie: cookieHeader,
       },

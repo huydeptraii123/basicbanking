@@ -28,12 +28,13 @@ import SignUp from '@/app/(auth)/sign-up/page'
 import { redirect, useRouter } from 'next/navigation'
 // We now call the backend directly from the client for auth
 import PlaidLink from './PlaidLink'
+import { fetchWithRetry } from '@/lib/core-fetch'
 
 // runtime schema is created per `type` below
 
 const AuthForm = ({ type }: {type: string}) => {
     const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [showTwoFactorVerify, setShowTwoFactorVerify] = useState(false);
 
@@ -74,7 +75,7 @@ const AuthForm = ({ type }: {type: string}) => {
       password: data.password
       };
 
-      const res = await fetch(`${base}/api/auth/signup`, {
+      const res = await fetchWithRetry(`${base}/api/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
@@ -94,7 +95,7 @@ const AuthForm = ({ type }: {type: string}) => {
     }
 
         if(type === 'sign-in') {
-            const res = await fetch(`${base}/api/auth/signin`, {
+            const res = await fetchWithRetry(`${base}/api/auth/signin`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: data.email, password: data.password }),
@@ -110,7 +111,7 @@ const AuthForm = ({ type }: {type: string}) => {
               if (json.require2FA) {
                 setShowTwoFactorVerify(true);
               } else {
-                alert('Đăng nhập thành công');
+                alert('Xác thực thành công. Vui lòng đợi!');
                 router.push('/')
               }
             } else {
@@ -120,7 +121,12 @@ const AuthForm = ({ type }: {type: string}) => {
         }
 
     } catch (error) {
-        console.log(error);
+        console.error(error);
+        alert(
+            error instanceof Error 
+            ? `Lỗi kết nối: ${error.message}` 
+            : "Đã xảy ra lỗi không xác định. Vui lòng thử lại."
+        );
     } finally {
         setIsLoading(false);
   }

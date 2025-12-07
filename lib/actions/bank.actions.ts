@@ -1,47 +1,88 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { fetchWithRetry } from "../core-fetch";
 import { parseStringify } from "../utils";
 
 import { getTransactionsByBankId } from "./transactions.action";
 import { getBanks, getBank } from "./user.actions";
 
 // Get multiple bank accounts
+// export const getAccounts = async ({ userId }: getAccountsProps) => {
+//   try {
+//     // get banks from db (backend)
+//     const banks = await getBanks({ userId });
+
+//     const banksList = banks || [];
+
+//     // Map each bank record from backend to an account object the frontend expects.
+//     const accounts = banksList.map((bank: any) => {
+//       const mask = bank.accountId ? bank.accountId.slice(-4) : '';
+//       const bal = typeof bank.balance !== 'undefined' && bank.balance !== null ? Number(bank.balance) : 0;
+//       return {
+//         id: bank.accountId || bank.id,
+//         availableBalance: bal,
+//         currentBalance: bal,
+//         institutionId: bank.bankId || null,
+//         name: bank.bankId || `Account ${mask}`,
+//         officialName: bank.bankId || '',
+//         mask,
+//         type: '',
+//         subtype: '',
+//         appwriteItemId: bank.id || bank.$id,
+//         sharableId: bank.sharableId,
+//       };
+//     });
+
+//     const totalBanks = accounts.length;
+//   const totalCurrentBalance = accounts.reduce((total: number, account: any) => total + (account.currentBalance || 0), 0);
+
+//     return parseStringify({ data: accounts, totalBanks, totalCurrentBalance });
+//   } catch (error) {
+//     console.error("An error occurred while getting the accounts:", error);
+//   }
+// };
+
 export const getAccounts = async ({ userId }: getAccountsProps) => {
   try {
-    // get banks from db (backend)
     const banks = await getBanks({ userId });
 
-    const banksList = banks || [];
+    if (banks.status !== "ok") {
+      return { status: banks.status, data: null };
+    }
 
-    // Map each bank record from backend to an account object the frontend expects.
-    const accounts = banksList.map((bank: any) => {
-      const mask = bank.accountId ? bank.accountId.slice(-4) : '';
-      const bal = typeof bank.balance !== 'undefined' && bank.balance !== null ? Number(bank.balance) : 0;
-      return {
-        id: bank.accountId || bank.id,
-        availableBalance: bal,
-        currentBalance: bal,
-        institutionId: bank.bankId || null,
-        name: bank.bankId || `Account ${mask}`,
-        officialName: bank.bankId || '',
-        mask,
-        type: '',
-        subtype: '',
-        appwriteItemId: bank.id || bank.$id,
-        sharableId: bank.sharableId,
-      };
-    });
+    const list = banks.data.map((bank: any) => ({
+      id: bank.accountId || bank.id,
+      availableBalance: Number(bank.balance) || 0,
+      currentBalance: Number(bank.balance) || 0,
+      institutionId: bank.bankId || null,
+      name: bank.bankId || `Account ${bank.accountId?.slice(-4)}`,
+      officialName: bank.bankId || "",
+      mask: bank.accountId?.slice(-4) || "",
+      type: "",
+      subtype: "",
+      appwriteItemId: bank.id || bank.$id,
+      sharableId: bank.sharableId,
+    }));
 
-    const totalBanks = accounts.length;
-  const totalCurrentBalance = accounts.reduce((total: number, account: any) => total + (account.currentBalance || 0), 0);
+    return {
+      status: "ok",
+      data: list,
+      totalBanks: list.length,
+      totalCurrentBalance: list.reduce(
+        (a: number, x: any) => a + (x.currentBalance || 0),
+        0
+      ),
+    };
 
-    return parseStringify({ data: accounts, totalBanks, totalCurrentBalance });
-  } catch (error) {
-    console.error("An error occurred while getting the accounts:", error);
+  } catch {
+    return { status: "network_error", data: null };
   }
 };
 
-// Get one bank account
+
+
+// // Get one bank account
 export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
   try {
     
@@ -85,6 +126,8 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
     console.error("An error occurred while getting the account:", error);
   }
 };
+
+
 
 // Get bank info
 export const getInstitution = async ({ institutionId }: getInstitutionProps) => {

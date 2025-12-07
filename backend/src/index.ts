@@ -10,6 +10,7 @@ import transactionsRoute from './routes/transactions';
 import toolsRoute from './routes/tools';
 import transferThrottleRoute from './routes/transfer-throttle';
 import Sentry from './sentry';
+import { chaosMonkey } from './middleware/chaos';
 
 dotenv.config();
 
@@ -19,6 +20,18 @@ app.use(express.json());
 const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:3001'].filter(Boolean) as string[];
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(cookieParser());
+
+
+// ==========================================
+// + THÊM CHAOS MONKEY VÀO ĐÂY (TRƯỚC ROUTES)
+// ==========================================
+// Chỉ nên bật khi chạy local dev
+if (process.env.NODE_ENV !== 'production') {
+    app.use(chaosMonkey);
+}
+// ==========================================
+
+
 
 // mount routes
 app.use('/api/sentry-example-api', sentryRoute);

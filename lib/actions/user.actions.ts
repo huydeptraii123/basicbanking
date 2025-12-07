@@ -7,6 +7,7 @@ import { encryptId, parseStringify } from "../utils";
 import { CountryCode, Products } from "plaid";
 import { plaidClient } from "../plaid";
 import { revalidatePath } from "next/cache";
+import { fetchWithRetry } from "../core-fetch";
 
 const {
     APPWRITE_DATABASE_ID: DATABASE_ID, 
@@ -26,7 +27,7 @@ export const getUserInfo = async ({ userId }:getUserInfoProps) => {
         const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
         // If userId is provided, try to fetch /api/user/me (most server flows use cookies)
-        const res = await fetch(`${base}/api/user/me`, {
+        const res = await fetchWithRetry(`${base}/api/user/me`, {
             headers: {
                 cookie: cookieHeader,
             },
@@ -117,39 +118,88 @@ export const signUp = async ( {password, ...userData}: SignUpParams) => {
 
 // ... your initilization functions
 
+// export async function getLoggedInUser() {
+//     try {
+//         // Call the new backend API and forward cookies from the incoming request
+//         const cookieStore = cookies();
+//         const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
+//         const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+//         const res = await fetchWithRetry(`${base}/api/user/me`, {
+//             headers: {
+//                 cookie: cookieHeader,
+//             },
+//             cache: 'no-store',
+//         });
+
+//         if (!res.ok) return null;
+//         const body = await res.json();
+//         const u = body.user || null;
+//         if (!u) return null;
+
+//         // Map backend user shape to the shape frontend expects (compat with Appwrite fields)
+//         const mapped = {
+//             $id: u.id,
+//             id: u.id,
+//             email: u.email,
+//             firstName: u.firstName,
+//             lastName: u.lastName,
+//         };
+
+//         return mapped;
+//     } catch (error) {
+//         return null;
+//     }
+// }
+
+
 export async function getLoggedInUser() {
     try {
-        // Call the new backend API and forward cookies from the incoming request
         const cookieStore = cookies();
-        const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
+        const cookieHeader = cookieStore
+          .getAll()
+          .map((c) => `${c.name}=${c.value}`)
+          .join('; ');
+
         const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-        const res = await fetch(`${base}/api/user/me`, {
-            headers: {
-                cookie: cookieHeader,
-            },
-            cache: 'no-store',
+        const res = await fetchWithRetry(`${base}/api/user/me`, {
+            headers: { cookie: cookieHeader },
+            cache: 'no-store'
         });
 
-        if (!res.ok) return null;
+        // Nếu server trả user=null → rõ ràng là chưa đăng nhập
+        if (res.status === 401 || res.status === 403) {
+            return { status: "unauthorized", user: null };
+        }
+
+        if (!res.ok) {
+            return { status: "network_error", user: null };
+        }
+
         const body = await res.json();
-        const u = body.user || null;
-        if (!u) return null;
+        if (!body.user) {
+            return { status: "unauthorized", user: null };
+        }
 
-        // Map backend user shape to the shape frontend expects (compat with Appwrite fields)
-        const mapped = {
-            $id: u.id,
-            id: u.id,
-            email: u.email,
-            firstName: u.firstName,
-            lastName: u.lastName,
-        };
+        const u = body.user;
 
-        return mapped;
-    } catch (error) {
-        return null;
+        return {
+            status: "ok",
+            user: {
+                $id: u.id,
+                id: u.id,
+                email: u.email,
+                firstName: u.firstName,
+                lastName: u.lastName,
+            }
+        };        
+    } catch (err) {
+        // Đây chính là lỗi retry thất bại
+        return { status: "network_error", user: null };
     }
 }
+
 
 export const logoutAccount = async () => {
     try {
@@ -198,7 +248,7 @@ export const createBankAccount = async ({
         const cookieStore = cookies();
         const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-        const res = await fetch(`${base}/api/banks/create`, {
+        const res = await fetchWithRetry(`${base}/api/banks/create`, {
             method: 'POST',
             headers: {
                 'content-type': 'application/json',
@@ -258,30 +308,37 @@ export const exchangePublicToken = async ({publicToken, user}: exchangePublicTok
 }
 
 export const getBanks = async ({ userId }: getBanksProps) => {
-    try {
-        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-        const cookieStore = cookies();
-        const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
+    if (!userId) {
+    return {
+      data: [],
+      message: "Missing userId",
+      status: 400,
+    };
+  }
+  try {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const cookieStore = cookies();
+    const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-        const res = await fetch(`${base}/api/banks/user/${userId}`, {
-            headers: {
-                cookie: cookieHeader,
-            },
-            cache: 'no-store',
-        });
+    const res = await fetchWithRetry(`${base}/api/banks/user/${userId}`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    });
 
-        if (!res.ok) {
-            console.error('getBanks backend error', await res.text());
-            return null;
-        }
-
-        const banks = await res.json();
-        return parseStringify(banks);
-    }  catch (error) {
-
-        console.log('error', error);
+    if (!res.ok) {
+      console.error('getBanks backend error', await res.text());
+      return { status: "backend_error", data: null };
     }
+
+    const banks = await res.json();
+    return { status: "ok", data: parseStringify(banks) };
+
+  } catch (error) {
+    console.log('error', error);
+    return { status: "network_error", data: null };
+  }
 }
+
 
 export const getBank = async ({ documentId }: getBankProps) => {
     try {
@@ -289,7 +346,7 @@ export const getBank = async ({ documentId }: getBankProps) => {
         const cookieStore = cookies();
         const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-        const res = await fetch(`${base}/api/banks/${documentId}`, {
+        const res = await fetchWithRetry(`${base}/api/banks/${documentId}`, {
             headers: {
                 cookie: cookieHeader,
             },
@@ -310,7 +367,7 @@ export const getBankByAccountId = async ({ accountId }: getBankByAccountIdProps)
         const cookieStore = cookies();
         const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
 
-        const res = await fetch(`${base}/api/banks/by-account/${accountId}`, {
+        const res = await fetchWithRetry(`${base}/api/banks/by-account/${accountId}`, {
             headers: {
                 cookie: cookieHeader,
             },

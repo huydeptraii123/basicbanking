@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Button } from './ui/button'
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { fetchWithRetry } from '@/lib/core-fetch';
 
 type PlaidLinkProps = {
   user: User | null;
@@ -29,12 +30,13 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
             return;
         }
         setLoading(true);
+        
         try {
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
             const headers: any = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const res = await fetch(`${base}/api/banks/create`, {
+            const res = await fetchWithRetry(`${base}/api/banks/create`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({ userId: (user as any).$id || (user as any).id || (user as any).userId, bankName, accountId, balance: amount ? parseFloat(amount) : 0 }),

@@ -7,9 +7,6 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-// We'll call backend endpoints directly (no external payment processor)
-import { decryptId } from "@/lib/utils";
-
 import { BankDropdown } from "./BankDropdown";
 import { Button } from "./ui/button";
 import {
@@ -23,15 +20,13 @@ import {
 } from "./ui/form";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
+import { fetchWithRetry } from "@/lib/core-fetch";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
-  // note is optional in the UI — make it optional here
   name: z.string().optional(),
-  // accept any non-empty amount string (we parse to float later)
   amount: z.string().min(1, "Amount is required"),
   senderBank: z.string().min(1, "Please select a valid bank account"),
-  // receiver id/public account may be plain text or base64 — keep validation loose
   sharableId: z.string().min(1, "Please enter a receiver account id"),
 });
 
@@ -51,63 +46,93 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
     },
   });
 
+  // --- 1. HÀM TRÍCH XUẤT LỖI TỔNG QUÁT (Universal Error Extractor) ---
+  // Hàm này chấp nhận mọi kiểu input và cố gắng tìm ra chuỗi lỗi có nghĩa nhất
+  const extractError = (payload: any, fallback: string = "Giao dịch thất bại"): string => {
+    if (!payload) return fallback;
+
+    // Trường hợp 1: Payload là string
+    if (typeof payload === "string") return payload;
+
+    // Trường hợp 2: Payload là object, tìm các key phổ biến
+    // Ưu tiên tìm key 'error', sau đó đến 'message', rồi 'detail'
+    const msg = payload.error || payload.message || payload.detail || payload.title;
+    
+    if (msg && typeof msg === "string") return msg;
+
+    // Trường hợp 3: Nếu là object nhưng không tìm thấy key nào quen thuộc
+    // convert sang string (cẩn thận nếu object quá to, nhưng error thường nhỏ)
+    if (typeof payload === 'object') {
+        try {
+            return JSON.stringify(payload);
+        } catch {
+            return fallback;
+        }
+    }
+
+    return fallback;
+  };
+
+  // --- 2. HÀM XỬ LÝ UI ---
+  const handleApiError = (rawError: any) => {
+    // Dùng hàm extractError ở trên để lấy nội dung lỗi
+    const message = extractError(rawError);
+
+    // Kiểm tra từ khóa Chaos Monkey
+    if (message.includes("CHAOS_MONKEY_ERROR")) {
+      setErrorMessage("Có lỗi xảy ra! Vui lòng thử lại");
+    } else {
+      setErrorMessage(message);
+    }
+  };
+
   const submit = async (data: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
 
+    const idempotencyKey = crypto.randomUUID(); 
+
     try {
-      console.log('Transfer submit payload', data);
       const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      // sanitize receiver sharable id from the form before decoding/sending
+      
       const rawShar = (data.sharableId || '').toString();
-      console.log('raw sharableId from form:', JSON.stringify(rawShar));
       let cleanedShar = rawShar.trim();
-      // if contains non-printable/control characters, try digits-only fallback
       if (!/^[\x20-\x7E]+$/.test(cleanedShar)) {
         const digits = rawShar.replace(/\D+/g, '');
-        if (digits && digits.length >= 3) {
-          cleanedShar = digits;
-          console.log('cleaned sharableId (digits fallback):', cleanedShar);
-        } else {
-          // remove non-ascii then trim
-          const asciiOnly = rawShar.replace(/[^\x20-\x7E]/g, '').trim();
-          cleanedShar = asciiOnly;
-          console.log('cleaned sharableId (ascii strip):', cleanedShar);
-        }
+        cleanedShar = (digits && digits.length >= 3) ? digits : rawShar.replace(/[^\x20-\x7E]/g, '').trim();
       }
       const receiverAccountId = cleanedShar;
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  const headers: any = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  console.log('Calling backend banks lookup', { receiverAccountId, senderBankId: data.senderBank, base });
-  const receiverRes = await fetch(`${base}/api/banks/by-account/${encodeURIComponent(receiverAccountId)}`, { headers, credentials: 'include' });
-  if (!receiverRes.ok) {
-    const body = await receiverRes.json().catch(() => ({}));
-    const msg = body?.error || `receiver lookup failed (${receiverRes.status})`;
-    console.error('receiver lookup failed', receiverRes.status, body);
-    setErrorMessage(msg);
-    setIsLoading(false);
-    return;
-  }
-  const senderRes = await fetch(`${base}/api/banks/${encodeURIComponent((data.senderBank || '').trim())}`, { headers, credentials: 'include' });
-  if (!senderRes.ok) {
-    const body = await senderRes.json().catch(() => ({}));
-    const msg = body?.error || `sender lookup failed (${senderRes.status})`;
-    console.error('sender lookup failed', senderRes.status, body);
-    setErrorMessage(msg);
-    setIsLoading(false);
-    return;
-  }
-  const receiverBank = await receiverRes.json();
-  const senderBank = await senderRes.json();
 
-      // validate numeric amount
-      const parsedAmount = parseFloat(data.amount);
-      if (isNaN(parsedAmount) || parsedAmount <= 0) {
-        throw new Error('Invalid amount');
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      // --- Lookup Receiver ---
+      const receiverRes = await fetchWithRetry(`${base}/api/banks/by-account/${encodeURIComponent(receiverAccountId)}`, { headers, credentials: 'include' });
+      if (!receiverRes.ok) {
+        const body = await receiverRes.json().catch(() => null); // Trả về null nếu parse lỗi
+        // Gọi hàm handleApiError với body (hoặc status text nếu body null)
+        handleApiError(body || `Lỗi tìm người nhận (${receiverRes.status})`);
+        setIsLoading(false);
+        return;
       }
 
-      // create transaction record locally (no third-party processor)
+      // --- Lookup Sender ---
+      const senderRes = await fetchWithRetry(`${base}/api/banks/${encodeURIComponent((data.senderBank || '').trim())}`, { headers, credentials: 'include' });
+      if (!senderRes.ok) {
+        const body = await senderRes.json().catch(() => null);
+        handleApiError(body || `Lỗi tìm ngân hàng nguồn (${senderRes.status})`);
+        setIsLoading(false);
+        return;
+      }
+
+      const receiverBank = await receiverRes.json();
+      const senderBank = await senderRes.json();
+
+      const parsedAmount = parseFloat(data.amount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) throw new Error('Số tiền không hợp lệ');
+
+      // --- Transaction Object ---
       const transaction = {
         name: data.name || undefined,
         amount: parsedAmount,
@@ -117,11 +142,12 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         receiverBankId: (receiverBank as any).id,
         email: data.email,
         channel: 'online',
-        category: 'Transfer'
+        category: 'Transfer',
+        idempotencyKey: idempotencyKey, 
       };
 
-      console.log('Creating transaction', transaction);
-      const txRes = await fetch(`${base}/api/transactions/create`, {
+      // --- Create Transaction (POST) ---
+      const txRes = await fetchWithRetry(`${base}/api/transactions/create`, {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -132,13 +158,12 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         form.reset();
         router.push('/');
       } else {
-        const body = await txRes.json().catch(() => ({}));
-        console.error('create transaction failed', body);
-        setErrorMessage(body?.error || 'Transaction failed');
+        const body = await txRes.json().catch(() => null);
+        handleApiError(body || 'Giao dịch thất bại');
       }
     } catch (error) {
-      console.error("Submitting create transfer request failed: ", error);
-      setErrorMessage((error as any)?.message || 'Transfer failed');
+      console.error("Lỗi submit form: ", error);
+      handleApiError(error);
     }
 
     setIsLoading(false);
@@ -147,11 +172,14 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(submit)} className="flex flex-col">
+        
+        {/* Chỉ hiển thị text lỗi, giữ nguyên form */}
         {errorMessage && (
-          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 font-medium border border-red-200">
             {errorMessage}
           </div>
         )}
+
         <FormField
           control={form.control}
           name="senderBank"
@@ -293,7 +321,7 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         />
 
         <div className="payment-transfer_btn-box">
-          <Button type="submit" className="payment-transfer_btn">
+          <Button type="submit" className="payment-transfer_btn" disabled={isLoading}>
             {isLoading ? (
               <>
                 <Loader2 size={20} className="animate-spin" /> &nbsp; Sending...

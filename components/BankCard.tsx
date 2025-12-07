@@ -6,6 +6,7 @@ import Link from 'next/link'
 import React, { useState } from 'react'
 import Copy from './Copy'
 import { useRouter } from 'next/navigation'
+import { fetchWithRetry } from '@/lib/core-fetch'
 
 const BankCard = ({ account, userName, showBalance = true}: CreditCardProps) => {
   const router = useRouter();
@@ -21,7 +22,7 @@ const BankCard = ({ account, userName, showBalance = true}: CreditCardProps) => 
       const headers: any = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${base}/api/banks/${account.appwriteItemId}`, {
+      const res = await fetchWithRetry(`${base}/api/banks/${account.appwriteItemId}`, {
         method: 'DELETE',
         headers,
       });

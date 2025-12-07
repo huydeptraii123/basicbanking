@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import prisma from '../prisma';
 import Sentry from '../sentry';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
 // Dev/debug: list all banks
-router.get('/all', async (req, res) => {
+router.get('/all', authMiddleware, async (req, res) => {
   try {
     const banks = await prisma.bank.findMany();
     return res.json(banks);
