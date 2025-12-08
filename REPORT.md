@@ -95,6 +95,12 @@ Tầng Database và xử lý giao dịch được cài đặt thiếu an toàn.
 - Đảm bảo tính duy nhất và không thể đảo ngược
 
 ---
+### Giao diện minh họa
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/3b022c53-5ac3-4574-a144-0c7628c93aa0" />
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/16329e6c-45c4-4587-b19d-00a054e378fe" />
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/af6d2146-d4a3-4699-b30f-345eb98f9071" />
+
+
 
 ### 📊 So sánh các phương pháp xác thực
 
@@ -818,6 +824,13 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 - **Biến lỗi thành độ trễ (Hard Failures → Latency):** Thay vì trả về lỗi ngay lập tức làm đứt gãy luồng nghiệp vụ, hệ thống chấp nhận độ trễ hợp lý để xử lý ngầm, đảm bảo các yêu cầu chức năng được hoàn tất trọn vẹn.
 - **Bảo vệ hạ tầng:** Cơ chế **Exponential Backoff + Jitter** giúp triệt tiêu hoàn toàn hiệu ứng cộng hưởng (Thundering Herd). Việc thử lại diễn ra có trật tự và rải rác, giúp Server hồi phục an toàn mà không bị "đánh úp" bởi các request retry ồ ạt.
 
+### Testing & Benchmark
+
+-   **Phương pháp:** Fake mạng lag → gửi lại request bằng cách viết một middleware phá hoại đón đầu request ngẫu nhiên từ chối hoặc cho qua với tỉ lệ 60% là từ chối, 40% cho qua. Spam request tới và đếm số lượng thao tác thành công. Một thao tác có thể gửi đi nhiều request do cơ chế Retry, miễn là request cuối cùng thành công thì nó vẫn được coi là một thao tác thành công.
+
+-   **Kết quả:** 
+![alt text](image-3.png)
+![alt text](image-2.png)
 ---
 
 ## 2.3 Database Optimization 
