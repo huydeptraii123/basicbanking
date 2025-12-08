@@ -444,13 +444,13 @@ Server xử lý **tất cả requests** gửi đến miễn là có JWT token h�
 **3. Load Test TRƯỚC khi có Throttling**
 
 ```
-Test: 1000 requests @ 50 req/s
+Test: 3000 requests @ 300 req/s
 ════════════════════════════════
-✗ Success: 15.75% (841/5341) ❌
-✗ Timeout: 3055 requests (57%)
-✗ Response Time P95: 8520ms  
-✗ Server: Quá tải, không response
-✗ Status: CRITICAL 🔴
+TransferHandledOnPeriodOfTime: 444 
+LoginRequestHandleOnPeriodOfTime: 444
+Rejected: 1668 + N/A
+Server Error (500): N/A
+Timeout: 2398
 ```
 
 ### 🧱 Pattern / Công nghệ sử dụng
@@ -461,23 +461,7 @@ Throttling hoạt động theo 3 layers:
 
 ```
 Request → Rate Limiter → Queue (FIFO) → Process
-             ↓              ↓             ↓
-        30 req/s max    Wait 3s max   Database
-```
 
-**Workflow chi tiết:**
-
-```typescript
-if (requestsThisSecond < maxRPS) {
-  // ✅ Layer 1: Process ngay
-  processImmediately();
-} else if (queueLength < maxQueueSize) {
-  // ⏳ Layer 2: Add vào queue, chờ tối đa 3s
-  addToQueue();
-} else {
-  // ❌ Layer 3: Queue đầy, reject với 503
-  return res.status(503).json({ error: 'Queue full' });
-}
 ```
 
 **2. Reset Interval (1 second window)**
@@ -517,18 +501,6 @@ Transfer Throttle Middleware ← [Control API]
 Transaction Logic
       ↓
 Response (200/429/503)
-```
-
-#### **File Structure**
-
-```
-backend/src/
-├── middleware/
-│   └── transferThrottle.ts       # Core logic (258 lines)
-├── routes/
-│   ├── transactions.ts            # Apply middleware
-│   └── transfer-throttle.ts      # Control API
-└── .env                           # Config
 ```
 
 #### **Core Implementation**
@@ -632,13 +604,14 @@ Response: {
 
 **Test: 1000 requests @ 50 req/s**
 
-| Metric | KHÔNG Throttling | CÓ Throttling | Improvement |
-|--------|------------------|---------------|-------------|
-| **Success Rate** | 15.75% ❌ | 92% ✅ | **+584%** |
-| **Timeout** | 3055 | 0 | **-100%** |
-| **Response P95** | 8520ms | 1200ms | **-86%** |
-| **Server CPU** | 100% (crash) | 65% | Stable |
-| **Status** | CRITICAL 🔴 | GOOD 🟢 | Fixed |
+| Metric | KHÔNG Throttling | CÓ Throttling |
+|--------|------------------|---------------|
+| **TransferHandled** | 444 ❌ | 419 ✅ |
+| **LoginHandled** | 444 ❌ | 415 ✅ |
+| **Timeout** | 2398 | 2099 |
+| **Response P95** | 5944.6ms | 6187.2ms |
+| **Response P99** | 7557.1ms | 9047.6ms |
+
 
 **Visual Comparison:**
 
@@ -718,60 +691,6 @@ npm run load-test:auto:1000
 # 3. Test WITH throttling  
 POST /api/transfer-throttle/toggle {"enabled": true}
 npm run load-test:auto:1000
-```
-
-#### **Test Results Summary**
-
-| Test | Requests | RPS | No Throttle | With Throttle | Gain |
-|------|----------|-----|-------------|---------------|------|
-| Light | 100 | 10 | 78% | 98% | +26% |
-| Medium | 1000 | 20 | 23% | 92% | **+393%** |
-| Heavy | 5000 | 50 | 15.75% | 85% | **+540%** |
-| Extreme | 10000 | 100 | 7.6% (crash) | 80% | **+1050%** |
-
-**Detailed (1000 req @ 20 RPS):**
-
-```
-┌─────────────────────────────┐
-│  KHÔNG THROTTLING           │
-├─────────────────────────────┤
-│ Total: 1000                 │
-│ Success: 234 (23%) ❌       │
-│ Timeout: 766               │
-│ P95: 8520ms                │
-│ Status: DEGRADED 🟡        │
-└─────────────────────────────┘
-
-┌─────────────────────────────┐
-│  CÓ THROTTLING (30 RPS)     │
-├─────────────────────────────┤
-│ Total: 1000                 │
-│ Success: 920 (92%) ✅       │
-│ Throttled: 80 (retry OK)   │
-│ Timeout: 0                 │
-│ P95: 1200ms                │
-│ Status: GOOD 🟢            │
-└─────────────────────────────┘
-```
-
-#### **Artillery Output Parser**
-
-Tool `parse-results.ps1` tự động parse output:
-
-```powershell
-REQUEST SUMMARY
-═══════════════
-Total:      1000
-Success:    920 (92%)
-Throttled:  80
-Timeout:    0
-
-RESPONSE TIME
-═════════════
-P95:    1200ms
-P99:    1450ms
-
-HEALTH: GOOD ✅
 ```
 
 ## 2.3 Retry - Thử lại khi gặp lỗi tạm thời
