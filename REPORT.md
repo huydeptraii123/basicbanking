@@ -95,6 +95,12 @@ Tầng Database và xử lý giao dịch được cài đặt thiếu an toàn.
 - Đảm bảo tính duy nhất và không thể đảo ngược
 
 ---
+### Giao diện minh họa
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/3b022c53-5ac3-4574-a144-0c7628c93aa0" />
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/16329e6c-45c4-4587-b19d-00a054e378fe" />
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/af6d2146-d4a3-4699-b30f-345eb98f9071" />
+
+
 
 ### 📊 So sánh các phương pháp xác thực
 
