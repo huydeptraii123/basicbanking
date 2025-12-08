@@ -2,8 +2,8 @@
 ============================================
 
 REQUEST SUMMARY
-TransferHandled: 578 
-LoginRequestHandled: 578
+TransferHandledOnPeriodOfTime: 578 
+LoginRequestHandleOnPeriodOfTime: 578
 Rejected (429): 3096
 Queue Full (503): N/A
 Server Error (500): N/A

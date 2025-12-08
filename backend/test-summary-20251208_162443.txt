@@ -2,7 +2,7 @@
 ============================================
 
 REQUEST SUMMARY
-TransferHandled: 626 
+TransferHandledOnPeriodOfTime: 626 
 LoginRequestHandled: 626
 Rejected (429): 3059
 Queue Full (503): N/A
