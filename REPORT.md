@@ -416,7 +416,7 @@ Sơ đồ mô tả quy trình xác thực 2 lớp từ đăng nhập đến xác
 
 ## 2.2 Transfer Throttling - Kiểm soát tốc độ giao dịch
 
-**Người thực hiện:** Backend Team
+**Người thực hiện:** Nguyễn Sinh Huy
 
 ### ❗ Vấn đề ban đầu
 
@@ -1162,7 +1162,7 @@ Không có giao dịch lặp.
 | MSSV     | Họ Tên            |
 | :------- | :---------------- |
 | 2302001  | [Nguyễn Ngọc Tài] |
-| ...      | [Tên Bạn]         |
+| 23020673 | [Nguyễn Sinh Huy] |
 | ...      | [Tên Bạn]         |
 | 23021666 | [Bùi Hải Phương]  |
 
