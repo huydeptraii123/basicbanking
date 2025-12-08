@@ -501,14 +501,6 @@ Mỗi giây:
 | **429** | Too Many Requests | Timeout trong queue (> 3s) | 1 second |
 | **503** | Service Unavailable | Queue đã đầy | N seconds |
 
-**Tại sao dùng Queue thay vì reject ngay?**
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| **Reject immediately** | Simple | Poor UX, users see many errors |
-| **Queue + Timeout** ✅ | Give requests a chance, better UX | Slightly complex |
-| **Unlimited queue** | No rejections | Memory leak, eventual crash |
-
 → Queue với timeout cân bằng giữa user experience và system stability.
 
 ### 🛠️ Cách giải quyết
