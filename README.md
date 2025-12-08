@@ -606,11 +606,12 @@ Response: {
 
 | Metric | KHÔNG Throttling | CÓ Throttling |
 |--------|------------------|---------------|
-| **TransferHandled** | 444 ❌ | 419 ✅ |
-| **LoginHandled** | 444 ❌ | 415 ✅ |
+| **TransferHandledOnPeriodOfTime** | 444  | 419  |
+| **LoginHandledOnPeriodOfTime** | 444  | 415  |
 | **Timeout** | 2398 | 2099 |
 | **Response P95** | 5944.6ms | 6187.2ms |
 | **Response P99** | 7557.1ms | 9047.6ms |
+| **Request Failed (Rejected + Crash)** | 1668 | 842 |
 
 
 **Visual Comparison:**
@@ -628,49 +629,6 @@ CÓ Throttling (Controlled):
       + 0 crashes
       + All requests processed
 ```
-
-#### **2. Real-world Scenarios**
-
-**Scenario 1: Ngày lương (5000 transfers trong 10 phút)**
-
-```
-Traffic: 5000 req / 600s = 8.3 req/s avg
-Peak: 50 req/s trong 30s
-
-KHÔNG Throttling:
-→ Server crash sau 45s 💀
-→ Success: 12%
-
-CÓ Throttling (30 RPS):
-→ Process: 900 requests
-→ Queue: 600 requests (wait ~1.2s)
-→ Success: 98.5% ✅
-```
-
-**Scenario 2: DDoS Attack (1000 req/s)**
-
-```
-KHÔNG Throttling:
-→ Dies in 3 seconds 💀
-
-CÓ Throttling:
-→ Process: 300 (30×10s)
-→ Queue: 2000
-→ Reject: 7700 với 503
-→ Server alive, legit users OK ✅
-```
-
-#### **3. Performance Metrics**
-
-```
-Middleware Overhead: +2ms (+4.4%)
-Memory Usage: 300 KB (queue)
-CPU Impact: < 1%
-```
-
-→ Overhead **rất nhỏ**, chấp nhận được.
-
-### Testing & Benchmark
 
 #### **Test Environment**
 
