@@ -49,7 +49,7 @@ Tầng Database và xử lý giao dịch được cài đặt thiếu an toàn.
 * **Vấn đề:** Client phản ứng rất tiêu cực trước các lỗi tạm thời như rớt mạng hoặc Server quá tải thoáng qua. Redirect thô bạo về trang Login hoặc im lặng khi request thất bại, không có cơ chế tự phục hồi.
 * **Hậu quả:** Trải nghiệm người dùng (UX) đứt gãy và gây ức chế. Người dùng không biết lỗi do đâu nên thường spam nút gửi, vô tình làm trầm trọng thêm tình trạng quá tải của hệ thống.
 
-# 1.3. Danh sách các cải tiến đã thực hiện
+## 1.3. Danh sách các cải tiến đã thực hiện
 
 1. …
 2. …
@@ -59,9 +59,9 @@ Tầng Database và xử lý giao dịch được cài đặt thiếu an toàn.
 
 ---
 
-# 4. Chi tiết từng cải tiến
+# 2. Chi tiết từng cải tiến
 
-## 4.1 Two-Factor Authentication (2FA) - Xác thực 2 lớp
+## 2.1 Two-Factor Authentication (2FA) - Xác thực 2 lớp
 
 ### ❗ Vấn đề ban đầu
 
@@ -367,7 +367,7 @@ if (data.require2FA) {
 
 ---
 
-## 4.2 Retry - Thử lại khi gặp lỗi tạm thời
+## 2.2 Retry - Thử lại khi gặp lỗi tạm thời
 
 ### ❗ Vấn đề ban đầu
 
@@ -406,6 +406,297 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 * **Biến lỗi thành độ trễ (Hard Failures → Latency):** Thay vì trả về lỗi ngay lập tức làm đứt gãy luồng nghiệp vụ, hệ thống chấp nhận độ trễ hợp lý để xử lý ngầm, đảm bảo các yêu cầu chức năng được hoàn tất trọn vẹn.
 * **Bảo vệ hạ tầng:** Cơ chế **Exponential Backoff + Jitter** giúp triệt tiêu hoàn toàn hiệu ứng cộng hưởng (Thundering Herd). Việc thử lại diễn ra có trật tự và rải rác, giúp Server hồi phục an toàn mà không bị "đánh úp" bởi các request retry ồ ạt.
 ---
+
+## 2.3 Database Optimization 
+
+**Người thực hiện:** Trương Minh Phước
+
+### ❗ Vấn đề ban đầu
+
+- **Mỗi request đều tự tạo và hủy kết nối DB**, dẫn tới chi phí thiết lập kết nối rất cao, gây tốn CPU/RAM và tạo ra bottleneck khi lượng truy cập tăng.
+- **Full-table scan** khi truy vấn dữ liệu có điều kiện (vd: `userId`, `accountId`) khiến hiệu suất giảm mạnh khi số lượng bản ghi lớn.
+- **Throughput thấp, độ trễ cao**, đặc biệt ở những màn hình yêu cầu truy vấn liên tục như dashboard tài khoản.
+- **Ảnh hưởng:**
+  - Người dùng phải chờ lâu hơn khi load dữ liệu.
+  - Server tốn nhiều tài nguyên hơn → dễ overload khi peak traffic.
+  - Các chức năng realtime như cập nhật số dư bị delay.
+
+### 🧱 Pattern / Công nghệ sử dụng
+
+#### 1. **Singleton Pattern + Connection Pooling**
+
+- Duy trì **một instance duy nhất** của Prisma Client để tái sử dụng kết nối thay vì tạo mới mỗi request.
+- Connection Pooling giúp chia sẻ và tái sử dụng các connection hiện có thay vì mở connection mới.
+- **Lý do chọn:**
+  - Ngăn việc tạo “nghẽn cổ chai” connection.
+  - Giảm chi phí thiết lập kết nối từ ~15ms xuống ~1ms.
+  - Tăng scalability khi số lượng request tăng.
+
+#### 2. **Database Indexing**
+- Tạo index trên các cột truy vấn nhiều: `userId`, `accountId`.
+- **Lý do chọn:**
+  - Tìm kiếm nhanh O(log n) thay vì O(n).
+  - Giảm 60–80% thời gian truy vấn với bảng lớn.
+- So với caching, index mang tính **ổn định và bền vững**, không phụ thuộc hệ thống phụ trợ.
+
+#### 3. **Slow Query Logging**
+- Theo dõi các truy vấn có latency > 500ms.
+- **Lý do chọn:**
+  - Phát hiện bottleneck thực tế.
+  - Tối ưu hoá truy vấn và index hiệu quả hơn.
+- So với profiling thủ công → logging cho phép giám sát liên tục.
+
+### 🛠️ Cách giải quyết
+
+-   Tối ưu prisma.ts để khởi tạo PrismaClient theo Singleton Pattern.
+
+-   Bật connection pooling để tăng throughput toàn hệ thống.
+
+-   Thêm index vào schema:
+
+    ``` prisma
+    @@index([userId])
+    @@index([accountId])
+    ```
+
+-   Kích hoạt logging để giám sát và tối ưu các truy vấn chậm.
+
+### 📈 Kết quả đạt được
+
+| **Chỉ số** | **Code Cũ** | **Code Mới** | **Cải thiện** | **Nguyên nhân chính** |
+| --- | --- | --- | --- | --- |
+| **Throughput (Sức tải)** | ~1,000 req/10s | **6,000 req/10s** | **x6 Lần** | Connection Pooling giúp tái sử dụng kết nối, không mất công khởi tạo. |
+| --- | --- | --- | --- | --- |
+| **Latency (Độ trễ TB)** | 795 ms | **178 ms** | **Nhanh hơn 4.5 lần** | Caching + Indexing giảm thời gian truy vấn DB. |
+| --- | --- | --- | --- | --- |
+| **Worst Case (Max Latency)** | 1,221 ms | **~250 ms** | **Ổn định** | Không bị block I/O. |
+| --- | --- | --- | --- | --- |
+| **Stability (Min Req/s)** | Tụt còn 20 req/s | **Duy trì >400 req/s** | **Mượt mà** | Hệ thống không bị "nghẹn" (bottleneck). |
+| --- | --- | --- | --- | --- |
+
+- Throughput tăng gấp **6 lần** (1,000 → 6,000 req/10s).
+- Latency giảm từ 795ms → **178ms**.
+- Hệ thống ổn định gấp ~20 lần khi tải cao (>400 req/s).
+- Tình trạng block I/O biến mất hoàn toàn.
+
+### Testing & Benchmark
+
+-   **Phương pháp:** 100 kết nối đồng thời trong 10 giây.\
+-   **Công cụ:** autocannon, k6.\
+-   **Kết quả:** Throughput tăng gấp 6 lần, latency giảm rõ rệt.
+
+## 2.4 Transaction Safety 
+
+**Người thực hiện:** Trương Minh Phước
+
+### ❗ Vấn đề ban đầu
+
+- Hệ thống cũ thực hiện tính toán số dư ở tầng ứng dụng:
+  - Hai request đồng thời đọc số dư → cùng trừ → gây **Race Condition**.
+  - Giao dịch có thể “nuốt mất tiền” hoặc tạo số dư âm.
+- Không có isolation đúng chuẩn → DB không ngăn được tranh chấp dữ liệu.
+- Không có retry logic → giao dịch thất bại gây lỗi dây chuyền.
+- **Ảnh hưởng:**
+  - Mất tiền của người dùng.
+  - Dữ liệu không nhất quán → báo cáo sai.
+  - Uy tín hệ thống giảm mạnh.
+
+### 🧱 Pattern / Công nghệ sử dụng
+
+#### 1. **ACID Transactions (SERIALIZABLE Isolation Level)**
+- Bọc toàn bộ logic rút/chuyển tiền vào một transaction có tính cô lập cao nhất.
+- Mỗi giao dịch được đảm bảo:
+  - **Atomicity**: Thành công hoàn toàn hoặc rollback.
+  - **Consistency**: Không gây ra số dư âm hoặc mất đồng bộ.
+  - **Isolation**: Không bị ảnh hưởng bởi giao dịch song song.
+  - **Durability**: Kết quả luôn được ghi nhận đúng.
+- **Lý do chọn SERIALIZABLE thay vì READ COMMITTED / REPEATABLE READ:**
+  - SERIALIZABLE mô phỏng xử lý tuần tự → loại bỏ race condition 100%.
+  - Các mức thấp hơn vẫn có thể gây lỗi lost update.
+
+#### 2. **Atomic Operation**
+- Không lấy số dư lên rồi tự tính nữa → dùng update nguyên tử của DB.
+- DB tự cập nhật số dư một cách an toàn khi có nhiều request.
+- **Lý do chọn:**
+  - Nhanh hơn nhiều so với lock thủ công.
+  - Tránh được race condition trên cùng một hàng.
+
+#### 3. **Retry Logic**
+- Khi xảy ra deadlock hoặc serialization error → tự retry 1–3 lần.
+- **Lý do chọn:**
+  - Giao dịch không fail ngẫu nhiên khi tải cao.
+  - Đảm bảo user không bị lỗi trừ tiền thất bại.
+
+### 🛠️ Cách giải quyết
+
+-   Dùng cập nhật nguyên tử ở tầng DB:
+
+    ``` ts
+    balance: { decrement: amount }
+    ```
+
+-   Bọc giao dịch trong `prisma.$transaction`.
+
+-   Isolation level **SERIALIZABLE** để ngăn lỗi ghi/đọc song song.
+
+-   Tự động retry nếu gặp deadlock hoặc serialization error.
+
+### 📈 Kết quả đạt được
+
+**Kịch bản:** Gửi dồn dập 10 request liên tục vào cùng một tài khoản để kiểm tra Atomic Update.
+
+\--- KẾT QUẢ LOG ---  
+Request 0: Thành công (Số dư: 85)  
+Request 1: Thành công (Số dư: 100) - (Nạp thêm)  
+Request 2: Thành công (Số dư: 80)  
+...  
+Request 9: Thành công (Số dư: 90)  
+
+### Testing & Benchmark
+
+-   **Phương pháp:** stress test 10--50 giao dịch cùng lúc.\
+-   **Công cụ:** custom load script.\
+-   **Kết quả:** Dữ liệu luôn nhất quán 100%.
+
+## 2.5 Caching Strategy (Chiến lược Cache)
+
+**Người thực hiện:** Trương Minh Phước
+
+### ❗ Vấn đề ban đầu
+
+- Mọi request đều truy vấn thẳng vào database → DB bị quá tải.
+- Các màn hình load nhiều (dashboard, lịch sử giao dịch) chạy rất chậm.
+- Dữ liệu không thay đổi liên tục nhưng vẫn bị query từ DB mỗi lần.
+- **Ảnh hưởng:**
+  - Latency tăng cao.
+  - Chi phí xử lý DB lớn.
+  - Hệ thống dễ bị nghẽn khi traffic tăng.
+
+### 🧱 Pattern / Công nghệ sử dụng
+
+#### 1. **Cache-Aside Pattern**
+- Ứng dụng kiểm tra cache trước:
+  - Nếu có → trả về ngay (Cache Hit).
+  - Nếu không có → đọc DB → đưa vào cache (Cache Miss).
+- **Lý do chọn Cache-Aside thay vì Write-Through / Write-Behind:**
+  - Đơn giản, dễ triển khai.
+  - Tránh ghi cache không cần thiết.
+  - Kiểm soát tốt cache invalidation.
+
+#### 2. **Redis In-memory Cache**
+- Redis lưu dữ liệu trong RAM, truy xuất cực nhanh (1–2ms).
+- Thích hợp cho dữ liệu:
+  - Không thay đổi thường xuyên.
+  - Được truy cập lặp lại.
+- **Lý do chọn Redis thay vì in-memory cache trong server:**
+  - Redis hoạt động độc lập → hỗ trợ scale nhiều server.
+  - Không bị mất cache khi server restart.
+  - Hỗ trợ TTL tự động.
+
+#### 3. **Cache Invalidation**
+- Khi có giao dịch mới → xóa cache cũ.
+- Đảm bảo tính nhất quán (consistency).
+
+### 🛠️ Cách giải quyết
+
+-   **Luồng Đọc:**
+    1.  Kiểm tra Redis\
+    2.  Nếu không có → đọc DB → lưu vào Redis\
+-   **Luồng Ghi:**
+    -   Sau giao dịch → Invalidate Cache
+
+### 📈 Kết quả đạt được
+
+_Mục tiêu: So sánh tốc độ đọc số dư._
+
+| **Lần gọi** | **Nguồn dữ liệu** | **Thời gian (Latency)** | **Trạng thái** |
+| --- | --- | --- | --- |
+| **Lần 1** | Database (Disk) | **133 ms** | Cache Miss |
+| --- | --- | --- | --- |
+| **Lần 2** | RAM (In-Memory) | **37 ms** | Cache Hit |
+| --- | --- | --- | --- |
+
+Latency giảm \~4 lần, giảm tải DB đáng kể.
+
+### Testing & Benchmark
+
+-   **Phương pháp:** 1000 lần đọc liên tiếp.\
+-   **Công cụ:** autocannon, Redis CLI.\
+-   **Kết quả:** \~97% request là Cache Hit.
+
+## 2.6 Idempotency & Validation
+
+**Người thực hiện:** Trương Minh Phước
+
+### ❗ Vấn đề ban đầu
+
+- User bấm nút nhiều lần → tạo nhiều giao dịch giống nhau (double spending).
+- Hacker gửi spam request bằng automation tool.
+- Dữ liệu đầu vào không được validate chặt → gây lỗi runtime hoặc hack logic.
+- Giao dịch có thể chạy nhiều lần khi mạng lag hoặc user reload trang.
+- **Ảnh hưởng:**
+  - Mất tiền oan.
+  - Lỗi trùng giao dịch.
+  - Hệ thống dễ bị spam gây overload.
+
+
+### 🧱 Pattern / Công nghệ sử dụng
+
+#### 1. **Idempotency Key**
+- Mỗi request chuyển tiền chứa một `Idempotency-Key` (UUID).
+- Server lưu key trong Redis trong 24h.
+- Nếu key đã tồn tại → không xử lý lại.
+- **Lý do chọn:**
+  - An toàn tuyệt đối khi user bấm 2–3 lần.
+  - Xử lý được trường hợp request retry do mạng.
+  - Ngăn spam tạo giao dịch trùng lặp.
+
+#### 2. **Zod Validation**
+- Validate toàn bộ input:
+  - Số tiền hợp lệ.
+  - Không âm.
+  - Không vượt giới hạn.
+- **Lý do chọn Zod thay vì Yup hoặc JOI:**
+  - Tích hợp tốt với TypeScript.
+  - Tạo type tự động.
+  - Tốc độ validate cao.
+
+#### 3. **safeRound cho xử lý số thực**
+- Tránh lỗi sai số khi tính toán tiền (floating point error).
+- **Lý do chọn:**
+  - JavaScript dễ gây sai số (vd: 0.1 + 0.2 ≠ 0.3).
+  - safeRound giúp làm tròn chính xác đến 2 chữ số thập phân.
+
+### 🛠️ Cách giải quyết
+
+-   Mỗi request phải có Idempotency Key.\
+-   Key được lưu Redis 24h.\
+-   Nếu nhận lại key đã tồn tại → từ chối request.\
+-   Validate input bằng Zod.\
+-   Xử lý số bằng safeRound để tránh lỗi floating point.
+
+### 📈 Kết quả đạt được
+
+**Kịch bản:** Giả lập mạng lag, Client gửi lại request cũ (Retry) với cùng một Idempotency Key.
+
+Key: test-key-1764488426217  
+\------------------------------------------------  
+1️ Đang gửi Request lần 1...  
+Lần 1: Thành công! (Transaction ID: 2ae75c...)  
+\-> Số dư mới: 35  
+<br/>... Giả vờ mạng lag, gửi lại ...  
+<br/>2️ Đang gửi Request lần 2 (Trùng Key)...  
+Lần 2: Bị chặn thành công!  
+\-> Error: "Transaction already processed"
+
+Không có giao dịch lặp.
+
+### Testing & Benchmark
+
+-   **Phương pháp:** Fake mạng lag → gửi lại request.\
+-   **Công cụ:** custom retry script.\
+-   **Kết quả:** 100% request trùng bị chặn.
+
 
 ## 4.x [Tên cải tiến]
 
