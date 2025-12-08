@@ -458,7 +458,7 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 
 ---
 
-## 2.3 Database Optimization 
+## 2.3 Database Optimization
 
 **Người thực hiện:** Trương Minh Phước
 
@@ -484,6 +484,7 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
   - Tăng scalability khi số lượng request tăng.
 
 #### 2. **Database Indexing**
+
 - Tạo index trên các cột truy vấn nhiều: `userId`, `accountId`.
 - **Lý do chọn:**
   - Tìm kiếm nhanh O(log n) thay vì O(n).
@@ -491,6 +492,7 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 - So với caching, index mang tính **ổn định và bền vững**, không phụ thuộc hệ thống phụ trợ.
 
 #### 3. **Slow Query Logging**
+
 - Theo dõi các truy vấn có latency > 500ms.
 - **Lý do chọn:**
   - Phát hiện bottleneck thực tế.
@@ -499,31 +501,31 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 
 ### 🛠️ Cách giải quyết
 
--   Tối ưu prisma.ts để khởi tạo PrismaClient theo Singleton Pattern.
+- Tối ưu prisma.ts để khởi tạo PrismaClient theo Singleton Pattern.
 
--   Bật connection pooling để tăng throughput toàn hệ thống.
+- Bật connection pooling để tăng throughput toàn hệ thống.
 
--   Thêm index vào schema:
+- Thêm index vào schema:
 
-    ``` prisma
-    @@index([userId])
-    @@index([accountId])
-    ```
+  ```prisma
+  @@index([userId])
+  @@index([accountId])
+  ```
 
--   Kích hoạt logging để giám sát và tối ưu các truy vấn chậm.
+- Kích hoạt logging để giám sát và tối ưu các truy vấn chậm.
 
 ### 📈 Kết quả đạt được
 
-| **Chỉ số** | **Code Cũ** | **Code Mới** | **Cải thiện** | **Nguyên nhân chính** |
-| --- | --- | --- | --- | --- |
-| **Throughput (Sức tải)** | ~1,000 req/10s | **6,000 req/10s** | **x6 Lần** | Connection Pooling giúp tái sử dụng kết nối, không mất công khởi tạo. |
-| --- | --- | --- | --- | --- |
-| **Latency (Độ trễ TB)** | 795 ms | **178 ms** | **Nhanh hơn 4.5 lần** | Caching + Indexing giảm thời gian truy vấn DB. |
-| --- | --- | --- | --- | --- |
-| **Worst Case (Max Latency)** | 1,221 ms | **~250 ms** | **Ổn định** | Không bị block I/O. |
-| --- | --- | --- | --- | --- |
-| **Stability (Min Req/s)** | Tụt còn 20 req/s | **Duy trì >400 req/s** | **Mượt mà** | Hệ thống không bị "nghẹn" (bottleneck). |
-| --- | --- | --- | --- | --- |
+| **Chỉ số**                   | **Code Cũ**      | **Code Mới**           | **Cải thiện**         | **Nguyên nhân chính**                                                 |
+| ---------------------------- | ---------------- | ---------------------- | --------------------- | --------------------------------------------------------------------- |
+| **Throughput (Sức tải)**     | ~1,000 req/10s   | **6,000 req/10s**      | **x6 Lần**            | Connection Pooling giúp tái sử dụng kết nối, không mất công khởi tạo. |
+| ---                          | ---              | ---                    | ---                   | ---                                                                   |
+| **Latency (Độ trễ TB)**      | 795 ms           | **178 ms**             | **Nhanh hơn 4.5 lần** | Caching + Indexing giảm thời gian truy vấn DB.                        |
+| ---                          | ---              | ---                    | ---                   | ---                                                                   |
+| **Worst Case (Max Latency)** | 1,221 ms         | **~250 ms**            | **Ổn định**           | Không bị block I/O.                                                   |
+| ---                          | ---              | ---                    | ---                   | ---                                                                   |
+| **Stability (Min Req/s)**    | Tụt còn 20 req/s | **Duy trì >400 req/s** | **Mượt mà**           | Hệ thống không bị "nghẹn" (bottleneck).                               |
+| ---                          | ---              | ---                    | ---                   | ---                                                                   |
 
 - Throughput tăng gấp **6 lần** (1,000 → 6,000 req/10s).
 - Latency giảm từ 795ms → **178ms**.
@@ -532,11 +534,11 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 
 ### Testing & Benchmark
 
--   **Phương pháp:** 100 kết nối đồng thời trong 10 giây.\
--   **Công cụ:** autocannon, k6.\
--   **Kết quả:** Throughput tăng gấp 6 lần, latency giảm rõ rệt.
+- **Phương pháp:** 100 kết nối đồng thời trong 10 giây.\
+- **Công cụ:** autocannon, k6.\
+- **Kết quả:** Throughput tăng gấp 6 lần, latency giảm rõ rệt.
 
-## 2.4 Transaction Safety 
+## 2.4 Transaction Safety
 
 **Người thực hiện:** Trương Minh Phước
 
@@ -555,6 +557,7 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 ### 🧱 Pattern / Công nghệ sử dụng
 
 #### 1. **ACID Transactions (SERIALIZABLE Isolation Level)**
+
 - Bọc toàn bộ logic rút/chuyển tiền vào một transaction có tính cô lập cao nhất.
 - Mỗi giao dịch được đảm bảo:
   - **Atomicity**: Thành công hoàn toàn hoặc rollback.
@@ -566,6 +569,7 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
   - Các mức thấp hơn vẫn có thể gây lỗi lost update.
 
 #### 2. **Atomic Operation**
+
 - Không lấy số dư lên rồi tự tính nữa → dùng update nguyên tử của DB.
 - DB tự cập nhật số dư một cách an toàn khi có nhiều request.
 - **Lý do chọn:**
@@ -573,6 +577,7 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
   - Tránh được race condition trên cùng một hàng.
 
 #### 3. **Retry Logic**
+
 - Khi xảy ra deadlock hoặc serialization error → tự retry 1–3 lần.
 - **Lý do chọn:**
   - Giao dịch không fail ngẫu nhiên khi tải cao.
@@ -580,17 +585,19 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 
 ### 🛠️ Cách giải quyết
 
--   Dùng cập nhật nguyên tử ở tầng DB:
+- Dùng cập nhật nguyên tử ở tầng DB:
 
-    ``` ts
-    balance: { decrement: amount }
-    ```
+  ```ts
+  balance: {
+    decrement: amount;
+  }
+  ```
 
--   Bọc giao dịch trong `prisma.$transaction`.
+- Bọc giao dịch trong `prisma.$transaction`.
 
--   Isolation level **SERIALIZABLE** để ngăn lỗi ghi/đọc song song.
+- Isolation level **SERIALIZABLE** để ngăn lỗi ghi/đọc song song.
 
--   Tự động retry nếu gặp deadlock hoặc serialization error.
+- Tự động retry nếu gặp deadlock hoặc serialization error.
 
 ### 📈 Kết quả đạt được
 
@@ -601,13 +608,13 @@ Request 0: Thành công (Số dư: 85)
 Request 1: Thành công (Số dư: 100) - (Nạp thêm)  
 Request 2: Thành công (Số dư: 80)  
 ...  
-Request 9: Thành công (Số dư: 90)  
+Request 9: Thành công (Số dư: 90)
 
 ### Testing & Benchmark
 
--   **Phương pháp:** stress test 10--50 giao dịch cùng lúc.\
--   **Công cụ:** custom load script.\
--   **Kết quả:** Dữ liệu luôn nhất quán 100%.
+- **Phương pháp:** stress test 10--50 giao dịch cùng lúc.\
+- **Công cụ:** custom load script.\
+- **Kết quả:** Dữ liệu luôn nhất quán 100%.
 
 ## 2.5 Caching Strategy (Chiến lược Cache)
 
@@ -626,6 +633,7 @@ Request 9: Thành công (Số dư: 90)
 ### 🧱 Pattern / Công nghệ sử dụng
 
 #### 1. **Cache-Aside Pattern**
+
 - Ứng dụng kiểm tra cache trước:
   - Nếu có → trả về ngay (Cache Hit).
   - Nếu không có → đọc DB → đưa vào cache (Cache Miss).
@@ -635,6 +643,7 @@ Request 9: Thành công (Số dư: 90)
   - Kiểm soát tốt cache invalidation.
 
 #### 2. **Redis In-memory Cache**
+
 - Redis lưu dữ liệu trong RAM, truy xuất cực nhanh (1–2ms).
 - Thích hợp cho dữ liệu:
   - Không thay đổi thường xuyên.
@@ -645,35 +654,36 @@ Request 9: Thành công (Số dư: 90)
   - Hỗ trợ TTL tự động.
 
 #### 3. **Cache Invalidation**
+
 - Khi có giao dịch mới → xóa cache cũ.
 - Đảm bảo tính nhất quán (consistency).
 
 ### 🛠️ Cách giải quyết
 
--   **Luồng Đọc:**
-    1.  Kiểm tra Redis\
-    2.  Nếu không có → đọc DB → lưu vào Redis\
--   **Luồng Ghi:**
-    -   Sau giao dịch → Invalidate Cache
+- **Luồng Đọc:**
+  1.  Kiểm tra Redis\
+  2.  Nếu không có → đọc DB → lưu vào Redis\
+- **Luồng Ghi:**
+  - Sau giao dịch → Invalidate Cache
 
 ### 📈 Kết quả đạt được
 
 _Mục tiêu: So sánh tốc độ đọc số dư._
 
 | **Lần gọi** | **Nguồn dữ liệu** | **Thời gian (Latency)** | **Trạng thái** |
-| --- | --- | --- | --- |
-| **Lần 1** | Database (Disk) | **133 ms** | Cache Miss |
-| --- | --- | --- | --- |
-| **Lần 2** | RAM (In-Memory) | **37 ms** | Cache Hit |
-| --- | --- | --- | --- |
+| ----------- | ----------------- | ----------------------- | -------------- |
+| **Lần 1**   | Database (Disk)   | **133 ms**              | Cache Miss     |
+| ---         | ---               | ---                     | ---            |
+| **Lần 2**   | RAM (In-Memory)   | **37 ms**               | Cache Hit      |
+| ---         | ---               | ---                     | ---            |
 
 Latency giảm \~4 lần, giảm tải DB đáng kể.
 
 ### Testing & Benchmark
 
--   **Phương pháp:** 1000 lần đọc liên tiếp.\
--   **Công cụ:** autocannon, Redis CLI.\
--   **Kết quả:** \~97% request là Cache Hit.
+- **Phương pháp:** 1000 lần đọc liên tiếp.\
+- **Công cụ:** autocannon, Redis CLI.\
+- **Kết quả:** \~97% request là Cache Hit.
 
 ## 2.6 Idempotency & Validation
 
@@ -690,10 +700,10 @@ Latency giảm \~4 lần, giảm tải DB đáng kể.
   - Lỗi trùng giao dịch.
   - Hệ thống dễ bị spam gây overload.
 
-
 ### 🧱 Pattern / Công nghệ sử dụng
 
 #### 1. **Idempotency Key**
+
 - Mỗi request chuyển tiền chứa một `Idempotency-Key` (UUID).
 - Server lưu key trong Redis trong 24h.
 - Nếu key đã tồn tại → không xử lý lại.
@@ -703,6 +713,7 @@ Latency giảm \~4 lần, giảm tải DB đáng kể.
   - Ngăn spam tạo giao dịch trùng lặp.
 
 #### 2. **Zod Validation**
+
 - Validate toàn bộ input:
   - Số tiền hợp lệ.
   - Không âm.
@@ -713,6 +724,7 @@ Latency giảm \~4 lần, giảm tải DB đáng kể.
   - Tốc độ validate cao.
 
 #### 3. **safeRound cho xử lý số thực**
+
 - Tránh lỗi sai số khi tính toán tiền (floating point error).
 - **Lý do chọn:**
   - JavaScript dễ gây sai số (vd: 0.1 + 0.2 ≠ 0.3).
@@ -720,11 +732,11 @@ Latency giảm \~4 lần, giảm tải DB đáng kể.
 
 ### 🛠️ Cách giải quyết
 
--   Mỗi request phải có Idempotency Key.\
--   Key được lưu Redis 24h.\
--   Nếu nhận lại key đã tồn tại → từ chối request.\
--   Validate input bằng Zod.\
--   Xử lý số bằng safeRound để tránh lỗi floating point.
+- Mỗi request phải có Idempotency Key.\
+- Key được lưu Redis 24h.\
+- Nếu nhận lại key đã tồn tại → từ chối request.\
+- Validate input bằng Zod.\
+- Xử lý số bằng safeRound để tránh lỗi floating point.
 
 ### 📈 Kết quả đạt được
 
@@ -744,10 +756,9 @@ Không có giao dịch lặp.
 
 ### Testing & Benchmark
 
--   **Phương pháp:** Fake mạng lag → gửi lại request.\
--   **Công cụ:** custom retry script.\
--   **Kết quả:** 100% request trùng bị chặn.
-
+- **Phương pháp:** Fake mạng lag → gửi lại request.\
+- **Công cụ:** custom retry script.\
+- **Kết quả:** 100% request trùng bị chặn.
 
 ## 4.x [Tên cải tiến]
 

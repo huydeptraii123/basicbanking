@@ -8,6 +8,7 @@ import { safeRound } from '../utils/math';
 import { runTransactionWithRetry } from '../utils/retry';
 import { transferThrottleMiddleware } from '../middleware/transferThrottle';
 import Sentry from '../sentry';
+import { authenticator } from 'otplib';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ const TransferSchema = z.object({
   receiverBankId: z.string().uuid(),
   name: z.string().optional(),
   idempotencyKey: z.string().min(10).optional(),
+  otpToken: z.string().length(6).optional(), // OTP token for 2FA users
 });
 
 
@@ -29,10 +31,40 @@ router.post('/create', authMiddleware, transferThrottleMiddleware , async (req: 
       return res.status(400).json({ error: validation.error.format() });
     }
 
-    const { amount, senderBankId, receiverBankId, name, idempotencyKey } = validation.data;
+    const { amount, senderBankId, receiverBankId, name, idempotencyKey, otpToken } = validation.data;
 
     if (senderBankId === receiverBankId) {
       return res.status(400).json({ error: 'Cannot transfer to the same account' });
+    }
+
+    // A2. Check 2FA if enabled
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { twoFactorEnabled: true, twoFactorSecret: true }
+    });
+
+    if (user?.twoFactorEnabled && user?.twoFactorSecret) {
+      // User has 2FA enabled, must provide OTP
+      if (!otpToken) {
+        return res.status(403).json({ 
+          error: 'OTP required', 
+          require2FA: true,
+          message: 'Please enter your 6-digit OTP code to complete this transfer'
+        });
+      }
+
+      // Verify OTP token
+      const isValid = authenticator.verify({
+        token: otpToken,
+        secret: user.twoFactorSecret,
+      });
+
+      if (!isValid) {
+        return res.status(403).json({ 
+          error: 'Invalid OTP code',
+          message: 'The OTP code you entered is incorrect. Please try again.'
+        });
+      }
     }
 
     // B. Check Idempotency (Layer 1: Cache Protection)

@@ -9,6 +9,7 @@ import * as z from "zod";
 
 import { BankDropdown } from "./BankDropdown";
 import { Button } from "./ui/button";
+import OTPDialog from "./OTPDialog";
 import {
   Form,
   FormControl,
@@ -34,6 +35,9 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showOTPDialog, setShowOTPDialog] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [pendingTransfer, setPendingTransfer] = useState<any>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -159,6 +163,16 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         router.push('/');
       } else {
         const body = await txRes.json().catch(() => null);
+        
+        // Check if 2FA is required
+        if (body?.require2FA) {
+          // Save transaction data and show OTP dialog
+          setPendingTransfer(transaction);
+          setShowOTPDialog(true);
+          setIsLoading(false);
+          return;
+        }
+        
         handleApiError(body || 'Giao dịch thất bại');
       }
     } catch (error) {
@@ -169,11 +183,67 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
     setIsLoading(false);
   };
 
+  const handleOTPSubmit = async (otp: string) => {
+    if (!pendingTransfer) return;
+
+    setIsLoading(true);
+    setOtpError(null);
+
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      // Add OTP token to transaction
+      const transactionWithOTP = {
+        ...pendingTransfer,
+        otpToken: otp
+      };
+
+      const txRes = await fetchWithRetry(`${base}/api/transactions/create`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(transactionWithOTP),
+      });
+
+      if (txRes.ok) {
+        setShowOTPDialog(false);
+        setPendingTransfer(null);
+        form.reset();
+        router.push('/');
+      } else {
+        const body = await txRes.json().catch(() => null);
+        setOtpError(body?.message || 'Invalid OTP code');
+      }
+    } catch (error) {
+      console.error("Lỗi xác thực OTP: ", error);
+      setOtpError('Failed to verify OTP. Please try again.');
+    }
+
+    setIsLoading(false);
+  };
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(submit)} className="flex flex-col">
-        
-        {/* Chỉ hiển thị text lỗi, giữ nguyên form */}
+    <>
+      <OTPDialog
+        isOpen={showOTPDialog}
+        onClose={() => {
+          setShowOTPDialog(false);
+          setPendingTransfer(null);
+          setOtpError(null);
+          setIsLoading(false);
+        }}
+        onSubmit={handleOTPSubmit}
+        isLoading={isLoading}
+        error={otpError || undefined}
+      />
+      
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(submit)} className="flex flex-col">
+          
+          {/* Chỉ hiển thị text lỗi, giữ nguyên form */}
         {errorMessage && (
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 font-medium border border-red-200">
             {errorMessage}
@@ -333,6 +403,7 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         </div>
       </form>
     </Form>
+    </>
   );
 };
 
