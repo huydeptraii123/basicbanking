@@ -1,0 +1,38 @@
+config:
+  target: "http://localhost:4000"
+  phases:
+    # AGGRESSIVE SPAM: 1 user sending 500 requests in 20 seconds  
+    # Rate limit default: 30 requests/minute
+    # Expected: ~30 pass, 470+ get blocked with 429
+    - duration: 20
+      arrivalRate: 25
+      name: "Aggressive spam: 500 requests in 20 seconds"
+  processor: "./processor.js"
+  variables:
+    authToken: ""
+    senderBankId: ""
+    receiverBankId: ""
+
+scenarios:
+  - name: "Single user aggressive spam attack"
+    flow:
+      # Same user for all requests
+      - function: "setAuthData"
+      
+      # Rapid fire transfers
+      - post:
+          url: "/api/transactions/create"
+          headers:
+            Content-Type: "application/json"
+            Cookie: "{{ authToken }}"
+          json:
+            senderBankId: "{{ senderBankId }}"
+            receiverBankId: "{{ receiverBankId }}"
+            amount: "{{ $randomNumber(5, 30) }}"
+            name: "Spam Attack Test"
+            channel: "online"
+            category: "Transfer"
+          afterResponse: "logBlocked"
+          capture:
+            - json: "$.transaction.id"
+              as: "transactionId"

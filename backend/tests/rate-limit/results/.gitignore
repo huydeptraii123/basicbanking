@@ -1,0 +1,3 @@
+# Ignore Artillery test results
+*.json
+!.gitkeep

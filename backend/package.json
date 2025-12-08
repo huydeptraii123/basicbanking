@@ -18,7 +18,12 @@
     "load-test:signin:prepare": "ts-node tests/load/sign-in/prepare-test-data.ts",
     "load-test:signin:100": "artillery run tests/load/sign-in/signin-100.yml",
     "load-test:signin:1000": "artillery run tests/load/sign-in/signin-1000.yml",
-    "load-test:signin:results": "ts-node tests/load/sign-in/view-results.ts"
+    "load-test:signin:results": "ts-node tests/load/sign-in/view-results.ts",
+    "rate-limit:prepare": "ts-node tests/rate-limit/prepare-test-data.ts",
+    "rate-limit:test:100": "artillery run tests/rate-limit/spam-100.yml",
+    "rate-limit:test:500": "artillery run tests/rate-limit/spam-500.yml",
+    "rate-limit:auto:100": "powershell -ExecutionPolicy Bypass -File tests/rate-limit/run-and-parse.ps1 100",
+    "rate-limit:auto:500": "powershell -ExecutionPolicy Bypass -File tests/rate-limit/run-and-parse.ps1 500"
   },
   "dependencies": {
     "@prisma/client": "^5.8.0",

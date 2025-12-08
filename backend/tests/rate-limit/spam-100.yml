@@ -1,0 +1,40 @@
+config:
+  target: "http://localhost:4000"
+  phases:
+    # SPAM TEST: 1 user sending 100 requests as fast as possible in 10 seconds
+    # Rate limit default: 30 requests/minute
+    # Expected: First ~30 pass, rest get 429 blocked
+    - duration: 10
+      arrivalRate: 10
+      name: "Spam: 100 requests in 10 seconds (1 user)"
+  processor: "./processor.js"
+  variables:
+    authToken: ""
+    senderBankId: ""
+    receiverBankId: ""
+
+scenarios:
+  - name: "Single user spam attack"
+    flow:
+      # Load same auth token for all virtual users (simulate 1 real user)
+      - function: "setAuthData"
+      
+      # Attempt rapid transfers
+      - post:
+          url: "/api/transactions/create"
+          headers:
+            Content-Type: "application/json"
+            Cookie: "{{ authToken }}"
+          json:
+            senderBankId: "{{ senderBankId }}"
+            receiverBankId: "{{ receiverBankId }}"
+            amount: "{{ $randomNumber(10, 50) }}"
+            name: "Rate Limit Test"
+            channel: "online"
+            category: "Transfer"
+          afterResponse: "logBlocked"
+          capture:
+            - json: "$.transaction.id"
+              as: "transactionId"
+          # Allow both 200 (success) and 429 (rate limited)
+          # Don't fail test on 429

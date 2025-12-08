@@ -9,6 +9,7 @@ import banksRoute from './routes/banks';
 import transactionsRoute from './routes/transactions';
 import toolsRoute from './routes/tools';
 import transferThrottleRoute from './routes/transfer-throttle';
+import rateLimitRoute from './routes/rate-limit';
 import Sentry from './sentry';
 import { chaosMonkey } from './middleware/chaos';
 
@@ -41,6 +42,7 @@ app.use('/api/banks', banksRoute);
 app.use('/api/transactions', transactionsRoute);
 app.use('/api/tools', toolsRoute);
 app.use('/api/transfer-throttle', transferThrottleRoute);
+app.use('/api/rate-limit', rateLimitRoute);
 
 if (typeof Sentry.setupExpressErrorHandler === 'function') {
   Sentry.setupExpressErrorHandler(app);

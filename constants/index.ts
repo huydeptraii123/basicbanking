@@ -24,6 +24,11 @@ export const sidebarLinks = [
     route: "/activate-2fa",
     label: "Activate 2FA",
   },
+  {
+    imgURL: "/icons/figma.svg",
+    route: "/rate-limit-lab",
+    label: "Rate Limit Lab",
+  },
 ];
 
 // good_user / good_password - Bank of America

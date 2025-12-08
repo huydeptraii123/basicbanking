@@ -7,6 +7,7 @@ import { cacheService } from '../lib/cache';
 import { safeRound } from '../utils/math';
 import { runTransactionWithRetry } from '../utils/retry';
 import { transferThrottleMiddleware } from '../middleware/transferThrottle';
+import rateLimiter from '../middleware/rateLimiter';
 import Sentry from '../sentry';
 
 const router = Router();
@@ -21,7 +22,8 @@ const TransferSchema = z.object({
 });
 
 
-router.post('/create', authMiddleware, transferThrottleMiddleware , async (req: AuthRequest, res) => {
+// Main transfer endpoint with BOTH throttling AND rate limiting
+router.post('/create', authMiddleware, rateLimiter.middleware(), transferThrottleMiddleware , async (req: AuthRequest, res) => {
   try {
     // A. Validation Input
     const validation = TransferSchema.safeParse(req.body);
