@@ -59,8 +59,6 @@ Tầng Database và xử lý giao dịch được cài đặt thiếu an toàn.
 
 ## 4.1 Two-Factor Authentication (2FA) - Xác thực 2 lớp
 
-**Người thực hiện:** Nguyễn Ngọc Tài
-
 ### ❗ Vấn đề ban đầu
 
 - **Bảo mật yếu:** Hệ thống chỉ sử dụng mật khẩu tĩnh (password) duy nhất để xác thực người dùng. Nếu mật khẩu bị lộ (phishing, keylogger, data breach), tài khoản người dùng sẽ bị chiếm đoạt hoàn toàn.
