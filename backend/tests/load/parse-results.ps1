@@ -24,7 +24,9 @@ if ($LogFile -and (Test-Path $LogFile)) {
 }
 
 # Extract Summary section
-if ($content -match "Summary report.*?(?=All VUs finished|$)") {
+if ($content -match "(?s)Summary report.*?$") {
+    $summary = $matches[0]
+} elseif ($content -match "(?s)--------------------------------\s*Summary report.*") {
     $summary = $matches[0]
 } else {
     $summary = $content
@@ -47,11 +49,11 @@ $error503 = Get-Metric $summary "http\.codes\.503:.*?(\d+)"
 $error500 = Get-Metric $summary "http\.codes\.500:.*?(\d+)"
 $timeout = Get-Metric $summary "timeout:.*?(\d+)"
 
-$responseMin = Get-Metric $summary "http\.response_time:.*?min:.*?(\d+)"
-$responseMedian = Get-Metric $summary "http\.response_time:.*?median:.*?([\d.]+)"
-$responseP95 = Get-Metric $summary "http\.response_time:.*?p95:.*?([\d.]+)"
-$responseP99 = Get-Metric $summary "http\.response_time:.*?p99:.*?([\d.]+)"
-$responseMax = Get-Metric $summary "http\.response_time:.*?max:.*?(\d+)"
+$responseMin = Get-Metric $summary "min:\s+\.+\s+(\d+)"
+$responseMedian = Get-Metric $summary "median:\s+\.+\s+([\d.]+)"
+$responseP95 = Get-Metric $summary "p95:\s+\.+\s+([\d.]+)"
+$responseP99 = Get-Metric $summary "p99:\s+\.+\s+([\d.]+)"
+$responseMax = Get-Metric $summary "max:\s+\.+\s+(\d+)"
 
 $vusersCreated = Get-Metric $summary "vusers\.created:.*?(\d+)"
 $vusersCompleted = Get-Metric $summary "vusers\.completed:.*?(\d+)"
@@ -72,11 +74,19 @@ Write-Host "============================================" -ForegroundColor Gray
 $requestTable = @(
     [PSCustomObject]@{Metric="Total Requests"; Value=$totalRequests}
     [PSCustomObject]@{Metric="Success (200)"; Value="$successRequests ($successRate`%)"}
-    [PSCustomObject]@{Metric="Throttled (429)"; Value=$error429}
-    [PSCustomObject]@{Metric="Queue Full (503)"; Value=$error503}
-    [PSCustomObject]@{Metric="Server Error (500)"; Value=$error500}
-    [PSCustomObject]@{Metric="Timeout"; Value=$timeout}
 )
+
+# Only add throttled/queue metrics if they exist
+if ($error429 -ne "N/A" -and [int]$error429 -gt 0) {
+    $requestTable += [PSCustomObject]@{Metric="Throttled (429)"; Value=$error429}
+}
+if ($error503 -ne "N/A" -and [int]$error503 -gt 0) {
+    $requestTable += [PSCustomObject]@{Metric="Queue Full (503)"; Value=$error503}
+}
+
+$requestTable += [PSCustomObject]@{Metric="Server Error (500)"; Value=$error500}
+$requestTable += [PSCustomObject]@{Metric="Timeout"; Value=$timeout}
+
 $requestTable | Format-Table -AutoSize
 
 Write-Host "`nRESPONSE TIME (ms)" -ForegroundColor Green

@@ -6,8 +6,8 @@ const path = require('path');
 
 let testData = null;
 
-// Load test data từ file
-function loadTestData() {
+// Load test data từ file và set vào context
+function loadTestData(context, events, done) {
   if (!testData) {
     try {
       const dataPath = path.join(__dirname, 'test-data.json');
@@ -16,22 +16,27 @@ function loadTestData() {
         console.log('✓ Loaded test data from test-data.json');
       } else {
         console.error('⚠ test-data.json not found! Run: npm run load-test:prepare');
-        testData = {
-          authToken: 'auth_token=YOUR_TOKEN',
-          user1BankId: 'BANK_1_ID',
-          user2BankId: 'BANK_2_ID'
-        };
+        return done(new Error('test-data.json not found'));
       }
     } catch (err) {
       console.error('Error loading test data:', err);
-      testData = {
-        authToken: 'auth_token=YOUR_TOKEN',
-        user1BankId: 'BANK_1_ID',
-        user2BankId: 'BANK_2_ID'
-      };
+      return done(err);
     }
   }
-  return testData;
+  
+  // Set variables
+  context.vars.email = testData.email;
+  context.vars.password = testData.password;
+  
+  // Random amount 10-100
+  context.vars.amount = Math.floor(Math.random() * 91) + 10;
+  
+  // Random direction
+  const useBank1AsSource = Math.random() < 0.5;
+  context.vars.sourceAccountId = useBank1AsSource ? testData.user1BankId : testData.user2BankId;
+  context.vars.destinationAccountId = useBank1AsSource ? testData.user2BankId : testData.user1BankId;
+  
+  return done();
 }
 
 // Set auth data cho mỗi virtual user
@@ -59,6 +64,7 @@ function logTransaction(context, events, done) {
 }
 
 module.exports = {
+  loadTestData,
   setAuthData,
   logTransaction
 };
