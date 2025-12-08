@@ -1,11 +1,11 @@
 config:
   target: "http://localhost:4000"
   phases:
-    - duration: 30
-      arrivalRate: 50  # 50 request/giây = 1500 requests trong 30s
+    - duration: 10
+      arrivalRate: 300  # 100 request/giây = 1000 requests trong 10s
       name: "High load: 50 transfers/second"
-    - duration: 30
-      arrivalRate: 50  # 50 request/giây = 1500 requests trong 30s  
+    - duration: 10
+      arrivalRate: 300  # 100 request/giây = 1000 requests trong 10s
       name: "Sustained: 50 transfers/second"
   processor: "./processor.js"
 

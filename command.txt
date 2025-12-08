@@ -1,33 +1,20 @@
-cd d:\bank\backend
-npm run dev
+No throttling:
 
-npm run dev
+Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/toggle" `
+  -Method Post -Body '{"enabled":false}' -ContentType "application/json"
 
-set LOAD_TEST_EMAIL=1@gmail.com
-set LOAD_TEST_PASSWORD=123456
-set LOAD_TEST_BASE_URL=http://localhost:4000
+npm run load-test:prepare 10000
+npm run load-test:auto:10000
 
-cd d:\bank\backend
-set USER_EMAIL=1@gmail.com
-set USER_PASSWORD=123456
-set BASE_URL=http://host.docker.internal:4000
-docker run --rm ^
-  -v %cd%:/work/backend ^
-  -w /work/backend ^
-  --env BASE_URL --env USER_EMAIL --env USER_PASSWORD ^
-  grafana/k6:latest run tests/load/login-k6.js
+Yes throttling:
 
-  curl -i -X POST http://localhost:4000/api/auth/signin ^
-  -H "Content-Type: application/json" ^
-  -d "{\"email\":\"1@gmail.com\",\"password\":\"123456\"}"
+Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/toggle" `
+  -Method Post -Body '{"enabled":true}' -ContentType "application/json"
 
-  curl -i -X POST http://host.docker.internal:4000 ^
-More?   -H "Content-Type: application/json" ^
-More?   -d "{\"email\":\"1@gmail.com\",\"password\":\"123456\"}"
+  Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/config" `
+  -Method Post `
+  -Body '{"maxRequestsPerSecond":30,"maxQueueSize":2000,"queueTimeoutMs":100000}' `
+  -ContentType "application/json"
 
-  FE:
-  set NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
-  npm run dev
-
-  BE:
-  set K6_PATH=C:\ProgramData\chocolatey\lib\k6\tools\k6-v1.3.0-windows-amd64\k6.exe
+  npm run load-test:prepare 10000
+  npm run load-test:auto:10000

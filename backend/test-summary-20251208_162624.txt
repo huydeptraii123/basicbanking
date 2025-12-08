@@ -1,0 +1,19 @@
+﻿Artillery Load Test Summary - 12/08/2025 16:26:24
+============================================
+
+REQUEST SUMMARY
+TransferHandled: 578 
+LoginRequestHandled: 578
+Rejected (429): 3096
+Queue Full (503): N/A
+Server Error (500): N/A
+Timeout: 2326
+
+RESPONSE TIME (ms)
+Min: 0
+Median: 4
+P95: 6439.7
+P99: 9230.4
+Max: 9957
+
+HEALTH: CRITICAL

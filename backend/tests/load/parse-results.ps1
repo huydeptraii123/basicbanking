@@ -44,10 +44,11 @@ function Get-Metric {
 # Extract values
 $totalRequests = Get-Metric $summary "http\.requests:.*?(\d+)"
 $successRequests = Get-Metric $summary "http\.codes\.200:.*?(\d+)"
+$loginRequests = Get-Metric $summary "http\.codes\.400:.*?(\d+)"
 $error429 = Get-Metric $summary "http\.codes\.429:.*?(\d+)"
 $error503 = Get-Metric $summary "http\.codes\.503:.*?(\d+)"
 $error500 = Get-Metric $summary "http\.codes\.500:.*?(\d+)"
-$timeout = Get-Metric $summary "timeout:.*?(\d+)"
+$timeout = Get-Metric $summary "errors\.ETIMEDOUT:.*?(\d+)"
 
 $responseMin = Get-Metric $summary "min:\s+\.+\s+(\d+)"
 $responseMedian = Get-Metric $summary "median:\s+\.+\s+([\d.]+)"
@@ -155,10 +156,9 @@ Artillery Load Test Summary - $(Get-Date)
 ============================================
 
 REQUEST SUMMARY
-Total Requests: $totalRequests
-Success (200): $successRequests ($successRate%)
-Throttled (429): $error429
-Queue Full (503): $error503
+TransferHandled: $successRequests 
+LoginRequestHandled: $loginRequests
+Rejected: $error429 + $error503
 Server Error (500): $error500
 Timeout: $timeout
 
@@ -168,11 +168,6 @@ Median: $responseMedian
 P95: $responseP95
 P99: $responseP99
 Max: $responseMax
-
-VIRTUAL USERS
-Created: $vusersCreated
-Completed: $vusersCompleted
-Failed: $vusersFailed ($failureRate%)
 
 HEALTH: $health
 "@
