@@ -89,12 +89,57 @@ Tầng Database và xử lý giao dịch được cài đặt thiếu an toàn.
 - Sử dụng hàm băm HMAC-SHA1 để tạo mã token an toàn
 - Đảm bảo tính duy nhất và không thể đảo ngược
 
-**Lý do chọn TOTP thay vì SMS/Email:**
+---
 
-- ✅ **An toàn hơn:** Không bị chặn bởi SIM swap attack hay email hack
-- ✅ **Hoạt động offline:** Không cần kết nối internet sau khi đã quét QR code
-- ✅ **Chi phí thấp:** Không tốn phí gửi SMS
-- ✅ **Trải nghiệm tốt:** Mã OTP được tạo ngay lập tức, không phải chờ tin nhắn
+### 📊 So sánh các phương pháp xác thực
+
+#### 🏦 **Tại sao App Ngân hàng BẮT BUỘC phải dùng 2FA (QR + OTP/TOTP)?**
+
+##### **1. Mức độ rủi ro trong ngân hàng cao hơn mọi loại ứng dụng khác**
+
+App ngân hàng xử lý:
+
+- 💰 **Tiền thật** - Giao dịch tài chính trực tiếp
+- 🔒 **Thông tin cá nhân cực kỳ nhạy cảm** - CMND, địa chỉ, thu nhập
+- 💎 **Tài khoản có giá trị cao** - Số dư lớn, quyền chuyển tiền không giới hạn
+
+**⚠️ Hậu quả:** Nếu hacker chiếm được tài khoản = **mất tiền ngay lập tức**, không thể hoàn tác.
+
+⇒ Vì vậy ngân hàng phải dùng cơ chế xác thực **mạnh hơn password**, **mạnh hơn cả OTP SMS**.
+
+##### **2. Password là phương pháp yếu nhất — và dễ bị tấn công**
+
+Nếu chỉ dùng **username + password** → Người dùng rất dễ:
+
+| Rủi ro                 | Mô tả                                                             | Xác suất       |
+| ---------------------- | ----------------------------------------------------------------- | -------------- |
+| 🔓 Mật khẩu yếu        | User đặt `123456`, `password`, tên + ngày sinh                    | **Rất cao**    |
+| ♻️ Dùng chung mật khẩu | 1 password cho nhiều website → 1 web bị hack = toàn bộ account lộ | **Cao**        |
+| ⌨️ Keylogger           | Phần mềm độc hại ghi lại phím bấm → lộ password                   | **Trung bình** |
+| 🎣 Phishing            | Trang web giả mạo đánh cắp thông tin đăng nhập                    | **Cao**        |
+| 📊 Data Breach         | Database bị hack → password bị leak trên dark web                 | **Trung bình** |
+
+**⇒ Kết luận:** Password **KHÔNG ĐỦ** để bảo vệ tài khoản ngân hàng.
+
+##### **3. So sánh các phương pháp xác thực**
+
+| Phương pháp          | Mức độ bảo mật     | Ưu điểm                                                           | Nhược điểm                                                                                      | Phù hợp ngân hàng?                   |
+| -------------------- | ------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **Password only**    | ⭐ Rất thấp        | - Đơn giản<br>- Dễ triển khai                                     | - Dễ bị đoán/hack<br>- Không chống phishing<br>- Dễ bị keylogger                                | ❌ **KHÔNG**                         |
+| **SMS OTP**          | ⭐⭐ Thấp          | - Phổ biến<br>- User quen thuộc                                   | - Bị tấn công SIM Swap<br>- Bị intercept bởi malware<br>- Delay gửi tin nhắn                    | ⚠️ **Dùng được nhưng không đủ mạnh** |
+| **Email OTP**        | ⭐⭐ Thấp          | - Không tốn phí SMS                                               | - Email dễ bị hack<br>- User reuse password<br>- Email server delay                             | ❌ **Không khuyến nghị**             |
+| **FaceID / Vân tay** | ⭐⭐⭐ Trung bình  | - Nhanh<br>- Tiện lợi                                             | - Chỉ là local unlock<br>- Không xác thực trên thiết bị mới<br>- Không chống clone/phishing app | ⚠️ **Cần kết hợp thêm 2FA**          |
+| **TOTP (QR + OTP)**  | ⭐⭐⭐⭐⭐ Rất cao | - An toàn nhất<br>- Offline<br>- Không tốn phí<br>- Chuẩn quốc tế | - Setup hơi phức tạp<br>- Cần app Authenticator                                                 | ✅ **KHUYÊN DÙNG**                   |
+
+**Cách hoạt động:**
+
+1. User quét QR code bằng Google Authenticator/Authy → lưu **secret key** trên thiết bị
+2. Mỗi 30s, app tạo mã OTP 6 chữ số dựa trên **secret key + timestamp**
+3. Server verify mã OTP bằng cùng thuật toán → **không cần internet, không cần SMS**
+
+**⇒ Kết luận:** TOTP là **chuẩn quốc tế** cho xác thực 2 lớp trong ngành tài chính.
+
+---
 
 ### 🛠️ Cách giải quyết
 
@@ -252,7 +297,7 @@ if (data.require2FA) {
 
 **2. Tuân thủ chuẩn quốc tế**
 
-- Sử dụng thuật toán TOTP (RFC 6238) - chuẩn công nghiệp
+- Sử dụng thuật toán TOTP (RFC 6238)
 - Tương thích với Google Authenticator, Authy, Microsoft Authenticator...
 - Đáp ứng yêu cầu bảo mật của các tổ chức tài chính
 
@@ -288,7 +333,7 @@ if (data.require2FA) {
 
 ### Testing & Benchmark
 
-**1. Security Analysis (Phân tích lý thuyết)**
+**1. Security Analysis **
 
 **Khả năng chống brute-force:**
 
@@ -309,7 +354,7 @@ if (data.require2FA) {
 - Nếu database bị breach, attacker vẫn cần thiết bị vật lý của user để tạo OTP
 - Tuân thủ nguyên tắc "Something you know + Something you have"
 
-**2. Functional Testing (Test thủ công)**
+**2. Functional Testing **
 
 | Test Case             | Kết quả | Ghi chú                                   |
 | --------------------- | ------- | ----------------------------------------- |
@@ -333,7 +378,7 @@ if (data.require2FA) {
 - Microsoft Authenticator
 - Authy
 
-**4. Performance Testing (Đo bằng Chrome DevTools)**
+**4. Performance Testing **
 
 **Phương pháp:** Chạy script test tự động trong Console, mỗi API test 3 lần, lấy trung bình.
 
@@ -411,11 +456,11 @@ if (data.require2FA) {
 
 ## 👥 Thành viên thực hiện
 
-| MSSV     | Họ Tên           |
-| :------- | :--------------- |
-| 2302001  | [Tên Bạn]        |
-| ...      | [Tên Bạn]        |
-| ...      | [Tên Bạn]        |
-| 23021666 | [Bùi Hải Phương] |
+| MSSV     | Họ Tên            |
+| :------- | :---------------- |
+| 2302001  | [Nguyễn Ngọc Tài] |
+| ...      | [Tên Bạn]         |
+| ...      | [Tên Bạn]         |
+| 23021666 | [Bùi Hải Phương]  |
 
 ---
