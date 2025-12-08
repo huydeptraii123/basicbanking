@@ -4,108 +4,136 @@ Hướng dẫn test so sánh hiệu suất chuyển tiền **có/không throttli
 
 ---
 
-## 🚦 Test Throttling Transfer
+## 🚦 Test Throttling Transfer - Extreme Load (10000 requests)
 
-### 📊 1. Test KHÔNG có Throttling (Baseline)
+Mục tiêu: Chứng minh throttling bảo vệ hệ thống khỏi sập dưới tải cao
 
-Chạy test để xem server hoạt động như thế nào khi không có throttling:
+### 📊 1. Test KHÔNG có Throttling (Hệ thống sập)
+
+Chạy test với **50-100 req/giây** để làm sập hệ thống:
 
 ```powershell
 # Bước 1: Tắt throttling
 Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/toggle" `
   -Method Post -Body '{"enabled":false}' -ContentType "application/json"
 
-# Bước 2: Chuẩn bị dữ liệu test (1000 giao dịch)
-npm run load-test:prepare 1000
+# Bước 2: Chuẩn bị dữ liệu test (10000 giao dịch)
+npm run load-test:prepare 10000
 
-# Bước 3: Chạy load test TỰ ĐỘNG với parse kết quả
-npm run load-test:auto:1000
+# Bước 3: Chạy load test EXTREME (9000 requests trong 2 phút)
+npm run load-test:auto:10000
 ```
 
 **Kết quả mong đợi KHÔNG throttling:**
-- Success rate: ~75% 
-- Timeout: 400+ timeout
-- Server error: Có lỗi 500
-- Health: DEGRADED
+- Success rate: < 30%
+- Timeout: > 5000
+- Server error: Nhiều lỗi 500
+- Response time: Tăng chóng mặt
+- Health: CRITICAL
+- **Hệ thống sập hoặc không phản hồi**
 
-### 📊 2. Test CÓ Throttling
+### 📊 2. Test CÓ Throttling (Hệ thống ổn định)
 
-Bật throttling và chạy lại test để so sánh:
+Bật throttling với config phù hợp để xử lý được tất cả requests:
 
 ```powershell
-# Bước 1: Bật throttling
+# Bước 1: Bật throttling với config cao
 Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/toggle" `
   -Method Post -Body '{"enabled":true}' -ContentType "application/json"
 
-# Bước 2: Kiểm tra trạng thái
+Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/config" `
+  -Method Post `
+  -Body '{"maxRequestsPerSecond":50,"maxQueueSize":500,"queueTimeoutMs":3000}' `
+  -ContentType "application/json"
+
+# Bước 2: Kiểm tra config
 Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/status"
 
 # Bước 3: Chuẩn bị dữ liệu test
-npm run load-test:prepare 1000
+npm run load-test:prepare 10000
 
-# Bước 4: Chạy load test TỰ ĐỘNG với parse kết quả  
-npm run load-test:auto:1000
+# Bước 4: Chạy load test với throttling
+npm run load-test:auto:10000
 ```
 
 **Kết quả mong đợi CÓ throttling:**
-- Success rate: Cao hơn cho request được xử lý
-- Timeout: Ít hơn nhiều  
-- Response 429: Có (throttling hoạt động)
-- Server error: Ít hoặc không có
+- Success rate: > 80% (200 + một số 429)
+- Timeout: < 500
+- Server error: Rất ít hoặc không
+- Response time: Ổn định
 - Health: GOOD/EXCELLENT
+- **Tất cả request được xử lý (200) hoặc throttled gracefully (429)**
 
 ### ⚙️ 3. Các lệnh Test tự động
 
-**Test với các kích thước khác nhau:**
+**Test với các mức độ tải:**
 ```powershell
-# Test nhẹ (100 request)
+# Test nhẹ (100 request - 10 req/s)
 npm run load-test:auto:100
 
-# Test nặng (1000 request) 
+# Test trung bình (1000 request - 20 req/s) 
 npm run load-test:auto:1000
 
-# Hoặc mặc định (1000 request)
-npm run load-test:auto
+# Test cực nặng (9000 request - 50-100 req/s)
+npm run load-test:auto:10000
 ```
 
-### 🔧 4. Tùy chỉnh Throttling
+### 🔧 4. Cấu hình Throttling theo tải
 
-**Kiểm tra trạng thái hiện tại:**
+**Config cho test 1000 (20 req/s):**
+```powershell
+Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/config" `
+  -Method Post `
+  -Body '{"maxRequestsPerSecond":20,"maxQueueSize":200,"queueTimeoutMs":3000}' `
+  -ContentType "application/json"
+```
+
+**Config cho test 10000 (50-100 req/s):**
+```powershell
+Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/config" `
+  -Method Post `
+  -Body '{"maxRequestsPerSecond":50,"maxQueueSize":500,"queueTimeoutMs":3000}' `
+  -ContentType "application/json"
+```
+
+**Kiểm tra trạng thái:**
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/status"
 ```
 
-**Thay đổi cấu hình throttling:**
-```powershell
-# Tăng giới hạn request/giây lên 15 và queue lên 150
-Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/config" `
-  -Method Post `
-  -Body '{"maxRequestsPerSecond":15,"maxQueueSize":150,"queueTimeoutMs":5000}' `
-  -ContentType "application/json"
-```
-
-**Reset queue và thống kê:**
+**Reset queue:**
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:4000/api/transfer-throttle/reset" -Method Post
 ```
 
 ### 📊 Cấu hình Test
 
-- **Tài khoản test**: `loadtest@example.com` / `LoadTest123!`
-- **Ngân hàng 1**: 100,000,000 VND
-- **Ngân hàng 2**: 100,000,000 VND  
-- **Giao dịch**: Random 10-100 VND, 2 chiều
-- **Load**: 20 request/giây trong 60 giây
+**Test 100 (Nhẹ):**
+- Load: 10 request/giây trong 10 giây
+- Total: ~100 requests
+- Mục đích: Test cơ bản
 
-### 📈 So sánh Kết quả (Dự kiến)
+**Test 1000 (Trung bình):**
+- Load: 20 request/giây trong 60 giây
+- Total: ~1200 requests  
+- Mục đích: Test production load bình thường
 
-| Chỉ số | KHÔNG Throttling | CÓ Throttling |
-|--------|------------------|---------------|
-| Success rate | ~75% (1269/1695) | ~90-95% |
-| Timeout | 410+ | <50 |
-| Response time | Không ổn định (8-6330ms) | Ổn định |
-| Server error | 16+ lỗi 500 | Ít hoặc không |
-| Health Status | DEGRADED | GOOD/EXCELLENT |
+**Test 10000 (Cực nặng):**
+- Phase 1: 50 request/giây trong 60 giây (~3000 requests)
+- Phase 2: 100 request/giây trong 60 giây (~6000 requests)
+- Total: ~9000 requests
+- Mục đích: Chứng minh throttling bảo vệ hệ thống
+
+### 📈 So sánh Kết quả (Test 10000)
+
+| Chỉ số | KHÔNG Throttling | CÓ Throttling (50 RPS) |
+|--------|------------------|------------------------|
+| Success rate | < 30% | > 80% |
+| Timeout | > 5000 | < 500 |
+| Response time | Tăng vọt (>10s) | Ổn định (<5s) |
+| Server error | Nhiều lỗi 500 | Rất ít |
+| Health Status | CRITICAL (sập) | GOOD/EXCELLENT |
+| Kết luận | **Hệ thống sập** | **Ổn định, xử lý hết** |
 
 ### 📊 Mã Response
 

@@ -23,6 +23,7 @@ interface TestData {
   user2BankId: string;
   userId: string;
   email: string;
+  password: string;
 }
 
 async function prepareTestData(numberOfTransactions: number = 100) {
@@ -109,7 +110,8 @@ async function prepareTestData(numberOfTransactions: number = 100) {
       user1BankId: bank1.id,
       user2BankId: bank2.id,
       userId: user.id,
-      email: testEmail
+      email: testEmail,
+      password: testPassword
     };
 
     const outputPath = path.join(__dirname, 'test-data.json');
