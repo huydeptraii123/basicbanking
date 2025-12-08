@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 
 // CẤU HÌNH ĐỘ KHÓ
 const CHAOS_ENABLED = false; // Bật/Tắt tổng
-const FAILURE_RATE = 0.7;   // 70% sẽ bị lỗi (30% thành công)
+const FAILURE_RATE = 0.6;   // 70% sẽ bị lỗi (30% thành công)
 const DELAY_MS = 0;         // Có muốn làm chậm server không? (0 = không)
 
 export const chaosMonkey = async (req: Request, res: Response, next: NextFunction) => {
