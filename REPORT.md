@@ -889,6 +889,9 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 
 ### 📈 Kết quả đạt được
 
+![Minh họa kết quả tốc độ đọc số dư](./public/images/connect1.png)
+![Minh họa kết quả tốc độ đọc số dư](./public/images/connect2.png)
+
 | **Chỉ số** | **Code Cũ** | **Code Mới** | **Cải thiện** | **Nguyên nhân chính** |
 | --- | --- | --- | --- | --- |
 | **Throughput (Sức tải)** | ~1,000 req/10s | **6,000 req/10s** | **x6 Lần** | Connection Pooling giúp tái sử dụng kết nối, không mất công khởi tạo. |
@@ -971,12 +974,7 @@ Việc triển khai **Retry** đã mang lại những lợi về độ ổn đ�
 
 **Kịch bản:** Gửi dồn dập 10 request liên tục vào cùng một tài khoản để kiểm tra Atomic Update.
 
-\--- KẾT QUẢ LOG ---  
-Request 0: Thành công (Số dư: 85)  
-Request 1: Thành công (Số dư: 100) - (Nạp thêm)  
-Request 2: Thành công (Số dư: 80)  
-...  
-Request 9: Thành công (Số dư: 90)  
+![Minh họa kết quả tốc độ đọc số dư](./public/images/testmang.jpg)
 
 ### Testing & Benchmark
 
@@ -1042,13 +1040,9 @@ _Mục tiêu: So sánh tốc độ đọc số dư._
 | **Lần 2** | RAM (In-Memory) | **37 ms** | Cache Hit |
 | --- | --- | --- | --- |
 
+![Minh họa kết quả tốc độ đọc số dư](./public/images/cache1.png)
+![Minh họa kết quả tốc độ đọc số dư](./public/images/cache2.png)
 Latency giảm \~4 lần, giảm tải DB đáng kể.
-
-### Testing & Benchmark
-
--   **Phương pháp:** 1000 lần đọc liên tiếp.\
--   **Công cụ:** autocannon, Redis CLI.\
--   **Kết quả:** \~97% request là Cache Hit.
 
 ## 2.6 Idempotency & Validation
 
@@ -1105,15 +1099,7 @@ Latency giảm \~4 lần, giảm tải DB đáng kể.
 
 **Kịch bản:** Giả lập mạng lag, Client gửi lại request cũ (Retry) với cùng một Idempotency Key.
 
-Key: test-key-1764488426217  
-\------------------------------------------------  
-1️ Đang gửi Request lần 1...  
-Lần 1: Thành công! (Transaction ID: 2ae75c...)  
-\-> Số dư mới: 35  
-<br/>... Giả vờ mạng lag, gửi lại ...  
-<br/>2️ Đang gửi Request lần 2 (Trùng Key)...  
-Lần 2: Bị chặn thành công!  
-\-> Error: "Transaction already processed"
+![Minh họa kết quả tốc độ đọc số dư](./public/images/testmang2.jpg)
 
 Không có giao dịch lặp.
 
@@ -1172,11 +1158,11 @@ Không có giao dịch lặp.
 
 ## 👥 Thành viên thực hiện
 
-| MSSV     | Họ Tên            |
-| :------- | :---------------- |
-| 2302001  | [Nguyễn Ngọc Tài] |
-| 23020673 | [Nguyễn Sinh Huy] |
-| ...      | [Tên Bạn]         |
-| 23021666 | [Bùi Hải Phương]  |
+| MSSV     | Họ Tên             |
+| :------- | :----------------  |
+| 2302001  | [Nguyễn Ngọc Tài]  |
+| 23020673 | [Nguyễn Sinh Huy]  |
+| 22028024 | [Trương Minh Phước]|
+| 23021666 | [Bùi Hải Phương]   |
 
 ---
