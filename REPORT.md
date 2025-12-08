@@ -45,6 +45,10 @@ Tầng Database và xử lý giao dịch được cài đặt thiếu an toàn.
 - **Vấn đề:** Hệ thống xử lý request dựa trên hành động bấm của user mà không có cơ chế kiểm tra tính duy nhất (**Idempotency Key**) hay xác thực dữ liệu đầu vào chặt chẽ (**Strict Validation**).
 - **Hậu quả:** Khi mạng chập chờn (Network Lag), user bấm nút "Gửi" nhiều lần sẽ dẫn đến việc **trừ tiền nhiều lần (Double Spending)** cho cùng một giao dịch. Dữ liệu rác (số âm, null) có thể lọt vào hệ thống.
 
+### 5. Xử lý lỗi thô sơ 
+* **Vấn đề:** Client phản ứng rất tiêu cực trước các lỗi tạm thời như rớt mạng hoặc Server quá tải thoáng qua. Redirect thô bạo về trang Login hoặc im lặng khi request thất bại, không có cơ chế tự phục hồi.
+* **Hậu quả:** Trải nghiệm người dùng (UX) đứt gãy và gây ức chế. Người dùng không biết lỗi do đâu nên thường spam nút gửi, vô tình làm trầm trọng thêm tình trạng quá tải của hệ thống.
+
 # 1.3. Danh sách các cải tiến đã thực hiện
 
 1. …
@@ -361,6 +365,46 @@ if (data.require2FA) {
 | Compliance | ❌ | RFC 6238 |
 | User Trust | Medium | High |
 
+---
+
+## 4.2 Retry - Thử lại khi gặp lỗi tạm thời
+
+### ❗ Vấn đề ban đầu
+
+* **Client xử lý lỗi thô sơ:**
+    * Trước đây, khi request gặp lỗi mạng hoặc Server quá tải, Client phản ứng tiêu cực bằng cách redirect người dùng về trang Login (gây hiểu nhầm là hết phiên) hoặc "im lặng" không báo lỗi.
+    * Điều này khiến người dùng bối rối, thậm chí bực mình khi vừa gặp lỗi vừa phải mất công đăng nhập lại. Trải nghiệm người dùng rất tệ.
+* **Mất đồng bộ với Server (Throttling Mismatch):**
+    * Khi Server áp dụng **Throttling**, nếu hàng đợi đầy, Server trả về mã `429 Too Many Requests hoặc 503 Server Too Busy`.
+    * Client cũ không hiểu mã này, coi là lỗi hệ thống và hủy thao tác ngay lập tức, trong khi thực tế chỉ cần đợi một chút là có thể xử lý được.
+
+### 🧱 Pattern / Công nghệ sử dụng
+
+* **Retry Pattern** kết hợp **Exponential Backoff** (Lùi lũy thừa) và **Jitter** (Độ trễ ngẫu nhiên). Khi request tới server gặp các lỗi tạm thời như mã lỗi 429, 503, 408, request timeout sẽ tự động thử lại tối đa 3 lần theo chiến lược lùi lũy thừa cộng với một độ trễ ngẫu nhiên.
+  
+### 🛠️ Cách giải quyết
+
+* **Chiến lược cộng sinh:**
+    * Retry ở Client được thiết kế để kết hợp chặt chẽ với Throttling ở Server.
+    * Khi Server trả về `429` (Bận/Quá tải tạm thời) -> Client tự động lùi lại và thử lại sau. Client đóng vai trò như bộ đệm (buffer) giúp giảm tải cho Server mà không làm gián đoạn trải nghiệm người dùng.
+
+* **Tại sao cần Jitter?**
+    * Nếu chỉ dùng **Exponential Backoff** (1s, 2s, 4s), khi Server hồi phục, hàng nghìn Client sẽ retry **cùng một lúc** chính xác từng mili-giây. Điều này gây ra làn sóng tấn công thứ 2  làm sập Server lần nữa.
+    * **Jitter** thêm một khoảng thời gian ngẫu nhiên (0-1000ms) để phân tán các request, giúp Server "dễ thở" hơn. Tránh trường hợp phản tác dụng của retry khi một loại request retry đến cùng lúc dẫn tới hệ thống tiếp tục quá tải ngay khi vừa phục hồi.
+
+* **Tại sao lại là Exponential Backoff?**
+    * Chúng tôi lựa chọn Exponential Backoff vì khả năng vượt trội trong việc "cứu" hệ thống đang hấp hối so với các phương pháp khác như thủ lại ngay lập tức hay thử lại với thời gian chờ cố định (Fixed delay).
+    1.  **Giả định về sự cố (Failure Assumption):** Chiến lược này dựa trên giả định: "Nếu request vừa thất bại, khả năng cao là hệ thống đang quá tải. Việc thử lại ngay lập tức chỉ làm tình hình tồi tệ hơn." Do đó, lùi lại càng xa như một cách vừa thử lại vừa thăm dò. Đây là một cách hành xử "lịch sự" nhất với Server.
+    2.  **Tránh hiệu ứng "Bầy đàn" (Thundering Herd):**
+        * **Cách cũ (Fixed Delay):** Nếu Server sập và 10.000 user cùng thử lại sau đúng 2 giây, Server sẽ chịu 10.000 request cùng lúc ngay khi vừa khởi động lại -> Sập tiếp.
+        * **Exponential Backoff:** Giãn cách thời gian thử lại ra rất nhanh (1s -> 2s -> 4s -> 8s). Điều này giúp giảm mật độ request theo thời gian, cho phép Server có "khoảng lặng" để xả bớt hàng đợi và phục hồi tài nguyên.
+### 📈 Tổng kết hiệu quả đạt dược
+
+Việc triển khai **Retry** đã mang lại những lợi về độ ổn định của hệ thống và trải nghiệm của người dùng:
+
+* **Tự động phục hồi (Transparent Recovery):** Khôi phục thành công  các giao dịch gặp lỗi mạng thoáng qua hoặc lỗi quá tải tạm thời (`429`, `503`). Người dùng không còn gặp phải các thông báo lỗi gây ức chế hay phải thao tác lại thủ công.
+* **Biến lỗi thành độ trễ (Hard Failures → Latency):** Thay vì trả về lỗi ngay lập tức làm đứt gãy luồng nghiệp vụ, hệ thống chấp nhận độ trễ hợp lý để xử lý ngầm, đảm bảo các yêu cầu chức năng được hoàn tất trọn vẹn.
+* **Bảo vệ hạ tầng:** Cơ chế **Exponential Backoff + Jitter** giúp triệt tiêu hoàn toàn hiệu ứng cộng hưởng (Thundering Herd). Việc thử lại diễn ra có trật tự và rải rác, giúp Server hồi phục an toàn mà không bị "đánh úp" bởi các request retry ồ ạt.
 ---
 
 ## 4.x [Tên cải tiến]
